@@ -1,4 +1,4 @@
-package myTime
+package Utils
 
 import "time"
 
