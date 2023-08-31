@@ -1,12 +1,13 @@
-package DA
+package userDA
 
 import (
 	"database/sql"
 	"fmt"
 	_ "github.com/mattn/go-sqlite3"
+	"nas/project/src/DA/Entities"
 )
 
-func Query() (users []User, err error) {
+func Query() (users []Entities.User, err error) {
 	db, err := sql.Open("sqlite3", "./nas.db")
 	if err != nil {
 		fmt.Println(err)
@@ -31,7 +32,7 @@ func Query() (users []User, err error) {
 	}
 
 	for rows.Next() {
-		var myUser User
+		var myUser Entities.User
 		//遍历表中所有行的信息
 		rows.Scan(&myUser.UserId, &myUser.UserName, &myUser.Password, &myUser.Capacity, &myUser.Margin)
 		//将user添加到users中

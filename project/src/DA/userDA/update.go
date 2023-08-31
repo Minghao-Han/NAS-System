@@ -1,13 +1,14 @@
-package DA
+package userDA
 
 import (
 	"database/sql"
 	"fmt"
 	_ "github.com/mattn/go-sqlite3"
 	"log"
+	"nas/project/src/DA/Entities"
 )
 
-func Update(user User) (rowsAffected int64, err error) {
+func Update(user Entities.User) (rowsAffected int64, err error) {
 	db, err := sql.Open("sqlite3", "./nas.db")
 	if err != nil {
 		fmt.Println(err)

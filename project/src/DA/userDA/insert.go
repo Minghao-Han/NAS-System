@@ -1,22 +1,16 @@
-package DA
+package userDA
 
 import (
 	"database/sql"
 	"fmt"
 	_ "github.com/mattn/go-sqlite3"
 	"log"
+	"nas/project/src/DA/Entities"
 )
 
 // 定义用户信息结构体
-type User struct {
-	UserId   int    `json:"id" form:"id"`
-	UserName string `json:"username" form:"username"`
-	Password string `json:"password" form:"password"`
-	Capacity int    `json:"capacity" form:"capacity"`
-	Margin   int    `json:"margin" form:"margin"`
-}
 
-func Insert(user User) (Id int, err error) {
+func Insert(user Entities.User) (Id int, err error) {
 	db, err := sql.Open("sqlite3", "./nas.db")
 	if err != nil {
 		fmt.Println(err)
