@@ -3,9 +3,10 @@ package utils
 import (
 	"database/sql"
 	"fmt"
+	_ "github.com/mattn/go-sqlite3"
 )
 
-func Query() {
+func Query() (users []User, err error) {
 	db, err := sql.Open("sqlite3", "./nas.db")
 	if err != nil {
 		fmt.Println(err)
@@ -23,33 +24,20 @@ func Query() {
 	//if err != nil {
 	//	fmt.Printf("insert data failed: %v\n", err)
 	//}
-
 	rows, err := db.Query("SELECT * FROM user ")
 	if err != nil {
 		fmt.Printf("query data failed: %v\n", err)
 		return
 	}
 
-	defer rows.Close()
-
 	for rows.Next() {
-		var user_id int
-		var user_name string
-		var password string
-		var capacity int
-		var margin int
-
-		err := rows.Scan(&user_id, &user_name, &password, &capacity, &margin)
-		if err != nil {
-			fmt.Printf("get data failed: %v\n", err)
-			return
-		}
-
-		fmt.Printf("%d\t%s\t%s\t%d\t%d\n", user_id, user_name, password, capacity, margin)
+		var myUser User
+		//遍历表中所有行的信息
+		rows.Scan(&myUser.UserId, &myUser.UserName, &myUser.Password, &myUser.Capacity, &myUser.Margin)
+		//将user添加到users中
+		users = append(users, myUser)
 	}
 
-	if err != nil {
-		fmt.Printf("create table failed: %v\n", err)
-	}
-	fmt.Println("database connected")
+	defer rows.Close()
+	return users, err
 }
