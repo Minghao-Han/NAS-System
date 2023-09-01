@@ -3,12 +3,15 @@ package userDA
 import (
 	"database/sql"
 	"log"
+	"nas/project/src/Utils"
 )
+
+var dbPath = Utils.DefaultConfigReader().Get("Database:dbPath").(string)
 
 // 通过id删除
 func Del(id int) (rows int, err error) {
 	//1.操作数据库
-	db, err := sql.Open("sqlite3", "./nas.db")
+	db, err := sql.Open("sqlite3", dbPath)
 	//错误检查
 	if err != nil {
 		log.Fatal(err.Error())

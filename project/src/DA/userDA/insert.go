@@ -5,13 +5,13 @@ import (
 	"fmt"
 	_ "github.com/mattn/go-sqlite3"
 	"log"
-	"nas/project/src/DA/Entities"
+	"nas/project/src/Entities"
 )
 
 // 定义用户信息结构体
 
 func Insert(user Entities.User) (Id int, err error) {
-	db, err := sql.Open("sqlite3", "./nas.db")
+	db, err := sql.Open("sqlite3", dbPath)
 	if err != nil {
 		fmt.Println(err)
 		return

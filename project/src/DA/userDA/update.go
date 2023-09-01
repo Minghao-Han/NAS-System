@@ -5,11 +5,11 @@ import (
 	"fmt"
 	_ "github.com/mattn/go-sqlite3"
 	"log"
-	"nas/project/src/DA/Entities"
+	"nas/project/src/Entities"
 )
 
 func Update(user Entities.User) (rowsAffected int64, err error) {
-	db, err := sql.Open("sqlite3", "./nas.db")
+	db, err := sql.Open("sqlite3", dbPath)
 	if err != nil {
 		fmt.Println(err)
 		return

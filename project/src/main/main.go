@@ -2,26 +2,13 @@ package main
 
 import (
 	"github.com/gin-gonic/gin"
+	"nas/project/src/Utils"
+	"nas/project/src/middleware"
 	"strconv"
 )
 
-//func main() {
-//	//portManage := PortManage.NewPortsManager()
-//	//for i := 0; i < 2; i++ {
-//	//	go func() {
-//	//		csPort, dsPort, connIndex, ok := portManage.PrepareConnection(net.ParseIP("192.168.1.1"))
-//	//		fmt.Printf("csPort is %d,dsPort is %d,connIndex is %d,ok is %t \n", csPort, dsPort, connIndex, ok)
-//	//	}()
-//	//}
-//	//time.Sleep(5 * time.Second)
-//	//return
-//}
-import (
-	"github.com/unrolled/secure"
-)
-
 func main() {
-	GinHttps(false) // 这里false 表示 http 服务，非 https
+	//GinHttps(true) // 这里false 表示 http 服务，非 https
 }
 
 func GinHttps(isHttps bool) error {
@@ -30,29 +17,13 @@ func GinHttps(isHttps bool) error {
 	r.GET("/test", func(c *gin.Context) {
 		c.String(200, "test for 【%s】", "https")
 	})
-
+	serverPort := Utils.DefaultConfigReader().Get("Server:port").(int)
 	if isHttps {
-		r.Use(TlsHandler(8000))
-
-		return r.RunTLS(":"+strconv.Itoa(8000), "/path/to/test.pem", "/path/to/test.key")
+		r.Use(middleware.TlsHandler(serverPort))
+		keyPath := Utils.DefaultConfigReader().Get("TLS:keyPath").(string)
+		pemPath := Utils.DefaultConfigReader().Get("TLS:pemPath").(string)
+		return r.RunTLS(":"+strconv.Itoa(serverPort), pemPath, keyPath)
 	}
 
-	return r.Run(":" + strconv.Itoa(8000))
-}
-
-func TlsHandler(port int) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		secureMiddleware := secure.New(secure.Options{
-			SSLRedirect: true,
-			SSLHost:     ":" + strconv.Itoa(port),
-		})
-		err := secureMiddleware.Process(c.Writer, c.Request)
-
-		// If there was an error, do not continue.
-		if err != nil {
-			return
-		}
-
-		c.Next()
-	}
+	return r.Run(":" + strconv.Itoa(serverPort))
 }

@@ -1,0 +1,11 @@
+TLS:
+  keyPath: "./project/static/certificates/h-hnetdisk-com-iis-0901115710.key"
+  pemPath: "./project/static/certificates/h-hnetdisk-com-iis-0901115710.pem"
+
+Server:
+  port: 8443
+
+Database:
+  dbPath: "./project/static/database/nas.db"
+
+keyIvYmlPath: "./project/static/aes.yml"
