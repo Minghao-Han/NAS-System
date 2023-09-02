@@ -82,7 +82,7 @@ func FindById(userId int) (*Entities.User, error) {
 		if err != nil {
 			return nil, err
 		}
-		user.Password = ""
+		user.Password = nil
 		return &user, nil
 	}
 	return nil, err
@@ -116,7 +116,7 @@ func FindByUsername(username string) (*Entities.User, error) {
 		if err != nil {
 			return nil, err
 		}
-		user.Password = ""
+		user.Password = nil
 		return &user, nil
 	}
 	return nil, err
@@ -144,14 +144,13 @@ func GetPassword(username string) ([]byte, error) {
 	}
 	defer rows.Close()
 	if rows.Next() {
-		pwStr := new(string)
+		var password *[]byte
 		//遍历表中所有行的信息
-		err := rows.Scan(pwStr)
+		err := rows.Scan(&password)
 		if err != nil {
 			return nil, err
 		}
-		pwBytes := []byte(*pwStr)
-		return pwBytes, nil
+		return *password, nil
 	}
 	return nil, err
 }
