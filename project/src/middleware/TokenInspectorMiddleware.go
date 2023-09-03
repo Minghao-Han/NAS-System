@@ -10,7 +10,7 @@ func TokenInspect() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		token := c.Request.Header.Get("token")
 		if token == "" {
-			c.JSON(http.StatusBadRequest, gin.H{
+			c.JSON(http.StatusUnauthorized, gin.H{
 				"msg": "no token",
 			})
 			c.Abort()
@@ -18,7 +18,7 @@ func TokenInspect() gin.HandlerFunc {
 		}
 		tokenValid, _ := Utils.DefaultJWT().VerifyToken(token)
 		if !tokenValid {
-			c.JSON(http.StatusBadRequest, gin.H{
+			c.JSON(http.StatusUnauthorized, gin.H{
 				"msg": "token invalid",
 			})
 			c.Abort()
@@ -27,7 +27,7 @@ func TokenInspect() gin.HandlerFunc {
 		value, err := Utils.DefaultJWT().ExtractClaim(token, "userId")
 		userId := convertToCorrectType(value)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{
+			c.JSON(http.StatusUnauthorized, gin.H{
 				"msg": "token doesn't contain user id",
 			})
 			c.Abort()

@@ -20,6 +20,7 @@ func GetNormalRouter() *gin.Engine {
 		userRouter.Use(middleware.TokenInspect())
 		userRouter.GET("/info", controllers.GetUserInfo)
 		userRouter.DELETE("/file", controllers.DeleteFile)
+		userRouter.PUT("/file", controllers.MoveFile)
 	}
 	//adminRouter := NormalRouter.Group("/admin")
 	return NormalRouter

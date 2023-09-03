@@ -28,7 +28,7 @@ func DeleteFile(c *gin.Context) {
 	filePath := diskRoot + strconv.Itoa(userId) + df.FilePath
 	_, existErr := os.Stat(filePath)
 	if os.IsNotExist(existErr) { //文件不存在
-		c.JSON(http.StatusNoContent, gin.H{
+		c.JSON(http.StatusUnprocessableEntity, gin.H{
 			"msg": "file doesn't exist",
 			"err": existErr,
 		})
@@ -36,7 +36,7 @@ func DeleteFile(c *gin.Context) {
 	}
 	rmErr := os.Remove(filePath)
 	if rmErr != nil { //删除文件失败
-		c.JSON(http.StatusNoContent, gin.H{
+		c.JSON(http.StatusUnprocessableEntity, gin.H{
 			"msg": "failed to delete file",
 			"err": rmErr,
 		})
@@ -52,9 +52,9 @@ func DeleteFile(c *gin.Context) {
 移动文件
 */
 type moveFile struct {
-	FilePath    string `json:"filePath,omitempty"`
-	DestinyPath string `json:"destinyPath,omitempty"`
-	Cover       bool   `json:"cover,omitempty"` //是否覆盖同名文件
+	SourceFilePath string `json:"sourceFilePath,omitempty"`
+	DestinyPath    string `json:"destinyPath,omitempty"`
+	Cover          bool   `json:"cover,omitempty"` //是否覆盖同名文件
 }
 
 func MoveFile(c *gin.Context) {
@@ -66,22 +66,44 @@ func MoveFile(c *gin.Context) {
 		return
 	}
 	userRoot := diskRoot + strconv.Itoa(userId)
-	filePath := userRoot + mf.FilePath
+	sourceFilePath := userRoot + mf.SourceFilePath
 	destinyPath := userRoot + mf.DestinyPath
-	_, existErr := os.Stat(filePath)
+	fileInfo, existErr := os.Stat(sourceFilePath)
 	if os.IsNotExist(existErr) { //文件不存在
-		c.JSON(http.StatusNoContent, gin.H{
+		c.JSON(http.StatusUnprocessableEntity, gin.H{
 			"msg": "file doesn't exist",
 			"err": existErr,
 		})
 		return
 	}
 	if _, dirErr := os.Stat(destinyPath); os.IsNotExist(dirErr) { //目的文件夹不存在
-		c.JSON(http.StatusNoContent, gin.H{
+		c.JSON(http.StatusUnprocessableEntity, gin.H{
 			"msg": "destiny dir doesn't exist",
 			"err": dirErr,
 		})
 		return
 	}
-	newFilePath := destinyPath+"/"+
+	newFilePath := destinyPath + "/" + fileInfo.Name()
+	_, err := os.Stat(newFilePath)
+	if !os.IsNotExist(err) { //有同名文件
+		if !mf.Cover { //不覆盖
+			c.JSON(http.StatusUnprocessableEntity, gin.H{
+				"msg": "Duplicate file",
+				"err": err,
+			})
+			return
+		}
+	}
+	renameErr := os.Rename(sourceFilePath, newFilePath)
+	if renameErr != nil {
+		c.JSON(http.StatusUnprocessableEntity, gin.H{
+			"msg": "failed to move file",
+			"err": renameErr,
+		})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"msg": "move file succeeded",
+	})
+	return
 }
