@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
-	"fmt"
 )
 
 type AesEncryptor struct {
@@ -17,41 +16,15 @@ var defaultAesEncryptor *AesEncryptor
 func DefaultAESEncryptor() *AesEncryptor {
 	if defaultAesEncryptor == nil {
 		defaultAesEncryptor = &AesEncryptor{}
+		keyIvYmlPath := DefaultConfigReader().Get("Aes:keyIvYmlPath").(string)
+		keyStr := YmlReader(keyIvYmlPath, "key").(string)
+		ivStr := YmlReader(keyIvYmlPath, "Nonce").(string)
+		defaultAesEncryptor.key = []byte(keyStr)
+		defaultAesEncryptor.iv = []byte(ivStr)
 	}
-	keyIvYmlPath := DefaultConfigReader().Get("keyIvYmlPath").(string)
-	keyStr := YmlReader(keyIvYmlPath, "key").(string)
-	ivStr := YmlReader(keyIvYmlPath, "iv").(string)
-	defaultAesEncryptor.key = []byte(keyStr)
-	defaultAesEncryptor.iv = []byte(ivStr)
 	return defaultAesEncryptor
 }
 
-func (aesEncryptor *AesEncryptor) StreamEncrypt(plaintext []byte, ciphertext []byte) error {
-	if aesEncryptor.key == nil || aesEncryptor.iv == nil {
-		return fmt.Errorf("no key and iv")
-	}
-	block, err := aes.NewCipher(aesEncryptor.key)
-	if err != nil {
-		return err
-	}
-	mode := cipher.NewCBCEncrypter(block, aesEncryptor.iv)
-	mode.CryptBlocks(ciphertext, plaintext)
-	return nil
-}
-
-func (aesEncryptor *AesEncryptor) StreamDecrypt(ciphertext []byte, plaintext []byte) error {
-	if aesEncryptor.key == nil || aesEncryptor.iv == nil {
-		return fmt.Errorf("no key and iv")
-	}
-	block, err := aes.NewCipher(aesEncryptor.key)
-	if err != nil {
-		return err
-	}
-	mode := cipher.NewCBCDecrypter(block, aesEncryptor.iv)
-
-	mode.CryptBlocks(plaintext, ciphertext)
-	return nil
-}
 func (aesEncryptor *AesEncryptor) EncryptWithPadding(plaintext []byte) ([]byte, error) {
 	block, err := aes.NewCipher(aesEncryptor.key)
 	if err != nil {
@@ -76,7 +49,7 @@ func (aesEncryptor *AesEncryptor) DecryptWithUnpadding(ciphertext []byte) ([]byt
 	return plaintext, nil
 }
 
-func Encrypt(plaintext []byte, key []byte, iv []byte) ([]byte, error) {
+func AesEncrypt(plaintext []byte, key []byte, iv []byte) ([]byte, error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
@@ -89,7 +62,7 @@ func Encrypt(plaintext []byte, key []byte, iv []byte) ([]byte, error) {
 	return ciphertext, nil
 }
 
-func Decrypt(ciphertext []byte, key []byte, iv []byte) ([]byte, error) {
+func AesDecrypt(ciphertext []byte, key []byte, iv []byte) ([]byte, error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
@@ -120,19 +93,19 @@ func pkcs7UnPadding(data []byte) []byte {
 */
 //func main() {
 //	key := []byte("this is a 16 byte key")
-//	iv := []byte("this is a 16 byte iv")
+//	Nonce := []byte("this is a 16 byte Nonce")
 //
 //	plaintext := []byte("hello world")
 //
 //	// 加密
-//	ciphertext, err := encrypt(plaintext, key, iv)
+//	ciphertext, err := encrypt(plaintext, key, Nonce)
 //	if err != nil {
 //		panic(err)
 //	}
 //	fmt.Printf("加密结果：%s\n", base64.StdEncoding.EncodeToString(ciphertext))
 //
 //	// 解密
-//	decrypted, err := decrypt(ciphertext, key, iv)
+//	decrypted, err := decrypt(ciphertext, key, Nonce)
 //	if err != nil {
 //		panic(err)
 //	}

@@ -2,13 +2,11 @@ package controllers
 
 import (
 	"github.com/gin-gonic/gin"
-	"nas/project/src/Utils"
+	"nas/project/src/Service"
 	"net/http"
-	"os"
 	"strconv"
+	"strings"
 )
-
-var diskRoot = Utils.DefaultConfigReader().Get("DiskRoot").(string)
 
 /*
 删除文件
@@ -25,26 +23,16 @@ func DeleteFile(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, nil)
 		return
 	}
-	filePath := diskRoot + strconv.Itoa(userId) + df.FilePath
-	_, existErr := os.Stat(filePath)
-	if os.IsNotExist(existErr) { //文件不存在
+	err := Service.DeleteFile(userId, df.FilePath)
+	if err != nil {
 		c.JSON(http.StatusUnprocessableEntity, gin.H{
-			"msg": "file doesn't exist",
-			"err": existErr,
+			"msg": err.Error(),
 		})
-		return
-	}
-	rmErr := os.Remove(filePath)
-	if rmErr != nil { //删除文件失败
-		c.JSON(http.StatusUnprocessableEntity, gin.H{
-			"msg": "failed to delete file",
-			"err": rmErr,
+	} else {
+		c.JSON(http.StatusOK, gin.H{
+			"msg": "delete file succeeded",
 		})
-		return
 	}
-	c.JSON(http.StatusOK, gin.H{
-		"msg": "successfully removed file",
-	})
 	return
 }
 
@@ -65,45 +53,51 @@ func MoveFile(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, nil)
 		return
 	}
-	userRoot := diskRoot + strconv.Itoa(userId)
-	sourceFilePath := userRoot + mf.SourceFilePath
-	destinyPath := userRoot + mf.DestinyPath
-	fileInfo, existErr := os.Stat(sourceFilePath)
-	if os.IsNotExist(existErr) { //文件不存在
+	err := Service.MoveFile(userId, mf.SourceFilePath, mf.DestinyPath, mf.Cover)
+	if err != nil {
 		c.JSON(http.StatusUnprocessableEntity, gin.H{
-			"msg": "file doesn't exist",
-			"err": existErr,
+			"msg": err.Error(),
+		})
+	} else {
+		c.JSON(http.StatusOK, gin.H{
+			"msg": "move file succeeded",
+		})
+	}
+	return
+}
+
+// CheckDir url dir/:dir_path/:style/:order/:page_num
+func CheckDir(c *gin.Context) {
+	value, _ := c.Get("userId")
+	userId := value.(int)
+	dirPath := c.Param("dir_path")
+	dirPath = strings.ReplaceAll(dirPath, "_", "/")
+	order := c.Param("order")
+	pageNum, err := strconv.Atoi(c.Param("page_num"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"msg": err.Error(),
 		})
 		return
 	}
-	if _, dirErr := os.Stat(destinyPath); os.IsNotExist(dirErr) { //目的文件夹不存在
-		c.JSON(http.StatusUnprocessableEntity, gin.H{
-			"msg": "destiny dir doesn't exist",
-			"err": dirErr,
+	/*
+		从redis中取，后面迭代
+	*/
+	if dirPath == "" || order == "" { //缺少参数
+		c.JSON(http.StatusBadRequest, gin.H{
+			"msg": "require params",
 		})
 		return
 	}
-	newFilePath := destinyPath + "/" + fileInfo.Name()
-	_, err := os.Stat(newFilePath)
-	if !os.IsNotExist(err) { //有同名文件
-		if !mf.Cover { //不覆盖
-			c.JSON(http.StatusUnprocessableEntity, gin.H{
-				"msg": "Duplicate file",
-				"err": err,
-			})
-			return
-		}
-	}
-	renameErr := os.Rename(sourceFilePath, newFilePath)
-	if renameErr != nil {
+	fileInfos, checkDirErr := Service.CheckDir(userId, dirPath, order, pageNum)
+	if checkDirErr != nil {
 		c.JSON(http.StatusUnprocessableEntity, gin.H{
-			"msg": "failed to move file",
-			"err": renameErr,
+			"msg": checkDirErr.Error(),
 		})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
-		"msg": "move file succeeded",
+		"msg":       "query ok",
+		"fileInfos": fileInfos,
 	})
-	return
 }

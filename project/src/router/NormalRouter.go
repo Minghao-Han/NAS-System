@@ -21,6 +21,7 @@ func GetNormalRouter() *gin.Engine {
 		userRouter.GET("/info", controllers.GetUserInfo)
 		userRouter.DELETE("/file", controllers.DeleteFile)
 		userRouter.PUT("/file", controllers.MoveFile)
+		userRouter.GET("/dir/:dir_path/:order/:page_num", controllers.CheckDir)
 	}
 	//adminRouter := NormalRouter.Group("/admin")
 	return NormalRouter
