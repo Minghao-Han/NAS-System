@@ -18,7 +18,7 @@ func DefaultAESEncryptor() *AesEncryptor {
 		defaultAesEncryptor = &AesEncryptor{}
 		keyIvYmlPath := DefaultConfigReader().Get("Aes:keyIvYmlPath").(string)
 		keyStr := YmlReader(keyIvYmlPath, "key").(string)
-		ivStr := YmlReader(keyIvYmlPath, "Nonce").(string)
+		ivStr := YmlReader(keyIvYmlPath, "iv").(string)
 		defaultAesEncryptor.key = []byte(keyStr)
 		defaultAesEncryptor.iv = []byte(ivStr)
 	}

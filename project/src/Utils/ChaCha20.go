@@ -12,7 +12,7 @@ type ChaChaEncryptor struct {
 
 var defaultChaEncryptor *ChaChaEncryptor
 
-func GetDefaultChaEncryptor() *ChaChaEncryptor {
+func DefaultChaEncryptor() *ChaChaEncryptor {
 	if defaultChaEncryptor == nil {
 		keyIvYmlPath := DefaultConfigReader().Get("ChaCha20:keyNonceYmlPath").(string)
 		keyStr := YmlReader(keyIvYmlPath, "key").(string)
@@ -26,17 +26,16 @@ func GetDefaultChaEncryptor() *ChaChaEncryptor {
 }
 
 // Encrypt 使用 ChaCha20 对明文进行加密
-func (cha *ChaChaEncryptor) Encrypt(plaintext []byte, ciphertext []byte) ([]byte, error) {
+func (cha *ChaChaEncryptor) Encrypt(plaintext []byte, ciphertext []byte) error {
 	if len(plaintext) != len(ciphertext) {
-		return nil, fmt.Errorf("ciphertext length mismatch")
+		return fmt.Errorf("ciphertext length mismatch")
 	}
 	c, err := chacha20.NewUnauthenticatedCipher(cha.key, cha.Nonce)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	c.XORKeyStream(ciphertext, plaintext)
-
-	return ciphertext, nil
+	return nil
 }
 
 // Decrypt 使用 ChaCha20 解密密文

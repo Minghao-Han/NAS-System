@@ -20,6 +20,7 @@ func DeleteFile(userId int, filePath string) error {
 	if rmErr != nil { //删除文件失败
 		return rmErr
 	}
+	/*还要删掉数据库中对应的行*/
 	return nil
 }
 

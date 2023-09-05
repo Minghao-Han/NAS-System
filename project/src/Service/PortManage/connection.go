@@ -7,33 +7,33 @@ import (
 
 type Connection struct {
 	sourceIp net.IP
-	cs_on    chan bool //cs stands for control stream
-	ds_on    chan bool //ds stands for data stream
+	cs2ds    chan bool //cs stands for control stream
+	ds2cs    chan bool //ds stands for data stream
 	ipRWLock *sync.RWMutex
 }
 
 func (conn *Connection) Initialize() {
 	conn.sourceIp = nil
-	conn.cs_on = make(chan bool, 1)
-	conn.ds_on = make(chan bool, 1)
+	conn.cs2ds = make(chan bool, 1)
+	conn.ds2cs = make(chan bool, 1)
 	conn.ipRWLock = &sync.RWMutex{}
 	return
 }
 
 func (conn *Connection) SetCSOn() {
-	conn.cs_on <- true
+	conn.cs2ds <- true
 }
 
 func (conn *Connection) SetDSOn() {
-	conn.ds_on <- true
+	conn.ds2cs <- true
 }
 
 func (conn *Connection) SetCSOff() {
-	<-conn.cs_on
+	<-conn.cs2ds
 }
 
 func (conn *Connection) SetDSOff() {
-	<-conn.ds_on
+	<-conn.ds2cs
 }
 
 func (conn *Connection) SetSourceIP(srcIP net.IP) {

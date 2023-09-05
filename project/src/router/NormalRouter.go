@@ -15,15 +15,21 @@ func GetNormalRouter() *gin.Engine {
 	NormalRouter.Use(middleware.TlsHandler(serverPort))
 	NormalRouter.POST("/login", controllers.Login)
 	//用户路由组
-	userRouter := NormalRouter.Group("/user")
+	userApi := NormalRouter.Group("/user")
 	{
-		userRouter.Use(middleware.TokenInspect())
-		userRouter.GET("/info", controllers.GetUserInfo)
-		userRouter.DELETE("/file", controllers.DeleteFile)
-		userRouter.PUT("/file", controllers.MoveFile)
-		userRouter.GET("/dir/:dir_path/:order/:page_num", controllers.CheckDir)
+		userApi.Use(middleware.TokenInspect())
+		userApi.GET("/info", controllers.GetUserInfo)
+		userFileApi := userApi.Group("/file")
+		{
+			userFileApi.DELETE("/", controllers.DeleteFile)
+			userFileApi.PUT("/", controllers.MoveFile)
+			userFileApi.GET("/uploading", controllers.GetUnfinishedUpload)
+			userFileApi.POST("/small", controllers.UploadSmallFile)
+			userFileApi.POST("/large", controllers.UploadLargeFile)
+		}
+		userApi.GET("/dir/:dir_path/:order/:page_num", controllers.CheckDir)
 	}
-	//adminRouter := NormalRouter.Group("/admin")
+	/*adminRouter := NormalRouter.Group("/admin")*/
 	return NormalRouter
 }
 

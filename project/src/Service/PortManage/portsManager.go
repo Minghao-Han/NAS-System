@@ -19,7 +19,7 @@ type PortsManager struct {
 	ports                []Port
 }
 
-func NewPortsManager() *PortsManager {
+func DefaultPortsManager() *PortsManager {
 	/**
 	initial operation, read from configuration file
 	*/
@@ -34,7 +34,7 @@ func NewPortsManager() *PortsManager {
 	for i := 0; i < connPerPort*portNum; i++ {
 		portsManager.availableConnections <- true
 	}
-	portsManager.ports = append(portsManager.ports, *NewPort(8080, 8081), *NewPort(8082, 8083))
+	portsManager.ports = append(portsManager.ports, *NewPort(8081, 8082), *NewPort(8083, 8084))
 	//test end
 	return &portsManager
 }

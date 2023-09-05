@@ -1,6 +1,7 @@
 package Service
 
 import (
+	"fmt"
 	"nas/project/src/DA/userDA"
 	"nas/project/src/Entities"
 	"nas/project/src/Utils"
@@ -28,4 +29,15 @@ func Authenticate(username string, password string) (int, bool) { //userId,å¯†ç 
 		return user.UserId, true
 	}
 	return -1, false
+}
+
+func MarginAvailable(userId int, fileSize uint64) error {
+	user, err := userDA.FindById(userId)
+	if err != nil {
+		return fmt.Errorf("user doesn't exist")
+	}
+	if user.Margin < fileSize {
+		return fmt.Errorf("no more space for this file")
+	}
+	return nil
 }

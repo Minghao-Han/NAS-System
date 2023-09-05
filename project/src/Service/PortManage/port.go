@@ -94,11 +94,11 @@ func (port *Port) PrepareNewConnection(sourceIP net.IP, ctx *context.Context, wg
 		case <-timeoutChan:
 			//超时未连接就将预留取消
 			port.DisConnectByIndex(connIndex, sourceIP)
-		case <-port.activeConnections[connIndex].cs_on: //控制流连接成功
+		case <-port.activeConnections[connIndex].cs2ds: //控制流连接成功
 			select {
 			case <-timeoutChan: //超时
 				port.DisConnectByIndex(connIndex, sourceIP) //解除占用
-			case <-port.activeConnections[connIndex].ds_on:
+			case <-port.activeConnections[connIndex].ds2cs:
 				return
 			}
 		}
