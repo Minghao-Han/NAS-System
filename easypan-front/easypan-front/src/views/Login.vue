@@ -118,9 +118,7 @@
             <span v-if="opType == 2">重置密码</span>
           </el-button>
         </el-form-item>
-<!--        <div class="login-btn-qq" v-if="opType == 1">-->
-<!--          快捷登录 <img src="@/assets/qq.png" @click="qqLogin" />-->
-<!--        </div>-->
+
       </el-form>
     </div>
     <!--发送邮箱验证码-->
@@ -129,9 +127,13 @@
 </template>
 
 <script setup>
+import { inject } from 'vue'
+const $axios = inject('$axios')
 import { ref, reactive, getCurrentInstance, nextTick, onMounted } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import md5 from "js-md5";
+import axios from "axios";
+
 
 
 const { proxy } = getCurrentInstance();
@@ -247,17 +249,14 @@ const doSubmit = () => {
       url = api.resetPwd;
     }
 
-    console.log("params")
-    console.log(params)
-    console.log("url")
-    console.log(url)
+    // console.log("params")
+    // console.log(params)
+    // console.log("url")
+    // console.log(url)
 
-    // this.$axios({
-    //   url:this.$http + '/login' ,
-    //   method:'get',
-    //   params:{
-    //
-    //   },
+    // axios({
+    //   url:'https://localhost:443/login',
+    //   method:'post',
     //   headers:{
     //     token:localStorage.getItem("token")
     //   }
@@ -268,31 +267,50 @@ const doSubmit = () => {
     //       type: 'success',
     //       message: '删除成功!'
     //     })
-    //     this.getGoodData()
     //   }else{
     //     this.$message.error("删除失败")
-    //   }
-    // })
+    //   }})
+
+    let data = {
+  "username":"hmh",
+  "password":"123456"
+}
+
+    axios.post('https://localhost:443/api/login', data, {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
+        .then(response => {
+          // 处理响应
+          console.log(response.data);
+        })
+        .catch(error => {
+          // 处理错误
+          console.error(error);
+        });
+
     let result = await proxy.Request({
       url: url,
+      data:JSON.stringify(data),
 
-      data:{
-        username:"hmh",
-        password:"123456"
-      },
-      // errorCallback: () => {
-      //   changeCheckCode(0);
-      // },
+      headers: {
+        'Content-Type': 'application/json'
+      }
+
     });
+
     if (!result) {
       return;
     }
+    console.log("登录")
     //注册返回
     if (opType.value == 0) {
       proxy.Message.success("注册成功,请登录");
       showPanel(1);
     } else if (opType.value == 1) {
       //登录
+
       if (params.rememberMe) {
         const loginInfo = {
           email: params.email,

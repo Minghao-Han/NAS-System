@@ -1,6 +1,7 @@
 package router
 
 import (
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"nas/project/controllers"
 	"nas/project/src/Utils"
@@ -12,8 +13,9 @@ var NormalRouter = gin.Default()
 
 func GetNormalRouter() *gin.Engine {
 	serverPort := Utils.DefaultConfigReader().Get("Server:port").(int)
+	NormalRouter.Use(cors.Default())
 	NormalRouter.Use(middleware.TlsHandler(serverPort))
-	NormalRouter.POST("/login", controllers.Login)
+	NormalRouter.POST("/api/login", controllers.Login)
 	//用户路由组
 	userApi := NormalRouter.Group("/user")
 	{

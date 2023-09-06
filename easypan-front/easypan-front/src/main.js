@@ -33,13 +33,15 @@ import Preview from '@/components/preview/Preview.vue'
 import Navigation from '@/components/Navigation.vue'
 import FolderSelect from '@/components/FolderSelect.vue'
 import Avatar from '@/components/Avatar.vue'
-import axios from "axios";
+
+import axios from 'axios'
 
 const app = createApp(App)
 app.use(ElementPlus);
 app.use(HljsVuePlugin);
 app.use(router)
-
+app.provide('$axios', axios)
+app.config.globalProperties.$axios = axios
 // Vue.prototype.$axios = axios
 // Vue.prototype.$http = 'http://localhost:443'
 

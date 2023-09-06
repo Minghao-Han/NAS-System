@@ -3,6 +3,9 @@ import { fileURLToPath, URL } from 'node:url'
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 
+const fs = require('fs')
+const path = require('path')
+
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [vue()],
@@ -15,29 +18,39 @@ export default defineConfig({
     }
   },
   server: {
+    disableHostCheck: true,//开启反向代理
     port: 1024,
     hmr: true,
-    secure: false,
+    //secure: false,
+    open:true,
+    cors:true,//允许跨域
+    https: {
+      // 主要是下面两行的配置文件，不要忘记引入 fs 和 path 两个对象
+      cert: fs.readFileSync(path.join(__dirname, 'src/ssl/cert.crt')),
+      key: fs.readFileSync(path.join(__dirname, 'src/ssl/cert.key'))
+    },
+    //disableHostCheck: true,
     proxy: {
       "/api": {
         target: "https://localhost:443",
         changeOrigin: true,
-        //secure:false,
-        onProxyReq:function (proxyReq, req, res, options) {
-          if (req.body) {
-            let bodyData = JSON.stringify(req.body);
-            // incase if content-type is application/x-www-form-urlencoded -> we need to change to application/json
-            proxyReq.setHeader('Content-Type','application/json');
-            proxyReq.setHeader('Content-Length', Buffer.byteLength(bodyData));
-            // stream the content
-            proxyReq.write(bodyData);
-          }},
+        ws:true,
+        secure:false,
+        // onProxyReq:function (proxyReq, req, res, options) {
+        //   if (req.body) {
+        //     let bodyData = JSON.stringify(req.body);
+        //     // incase if content-type is application/x-www-form-urlencoded -> we need to change to application/json
+        //     proxyReq.setHeader('Content-Type','application/json');
+        //     proxyReq.setHeader('Content-Length', Buffer.byteLength(bodyData));
+        //     // stream the content
+        //     proxyReq.write(bodyData);
+        //   }},
         pathRewrite: {
-          "^/api": ""
+          "^/api": "/",
         }
       }
     },
-    https: true
+    //https: true
 
   },
   build: {
