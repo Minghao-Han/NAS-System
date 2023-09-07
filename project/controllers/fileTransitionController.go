@@ -280,8 +280,9 @@ func DsForDownload(c *gin.Context) {
 		}
 		offset += int64(n)
 	}
-	c.Stream(func(w io.Writer) bool { //结束文件流
-		return true
-	})
+	c.Writer.Flush()
+	//c.Stream(func(w io.Writer) bool { //结束文件流
+	//	return false
+	//})
 	return
 }
