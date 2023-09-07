@@ -7,25 +7,32 @@ import (
 
 type Connection struct {
 	sourceIp net.IP
-	cs2ds    chan bool //cs stands for control stream
-	ds2cs    chan bool //ds stands for data stream
+	cs2ds    chan int64 //cs stands for control stream
+	ds2cs    chan int64 //ds stands for data stream
 	ipRWLock *sync.RWMutex
 }
 
 func (conn *Connection) Initialize() {
 	conn.sourceIp = nil
-	conn.cs2ds = make(chan bool, 1)
-	conn.ds2cs = make(chan bool, 1)
+	conn.cs2ds = make(chan int64, 1)
+	conn.ds2cs = make(chan int64, 1)
 	conn.ipRWLock = &sync.RWMutex{}
 	return
 }
 
-func (conn *Connection) SetCSOn() {
-	conn.cs2ds <- true
+func (conn *Connection) CS2DS(msg int64) {
+	conn.cs2ds <- msg
 }
 
-func (conn *Connection) SetDSOn() {
-	conn.ds2cs <- true
+func (conn *Connection) DS2CS(msg int64) {
+	conn.ds2cs <- msg
+}
+func (conn *Connection) GetCS2DS() chan int64 {
+	return conn.cs2ds
+}
+
+func (conn *Connection) GetDS2CS() chan int64 {
+	return conn.ds2cs
 }
 
 func (conn *Connection) SetCSOff() {

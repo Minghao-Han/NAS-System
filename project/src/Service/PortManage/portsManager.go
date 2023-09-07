@@ -19,26 +19,34 @@ type PortsManager struct {
 	ports                []Port
 }
 
+var defaultPortsManager *PortsManager
+
 func DefaultPortsManager() *PortsManager {
-	/**
-	initial operation, read from configuration file
-	*/
-	//for test
-	portNum = 2
-	connPerPort = 10
-	prepareConnectionTimeout = 10
-	var portsManager = PortsManager{
-		availableConnections: make(chan bool, connPerPort*portNum),
-		ports:                make([]Port, 0),
+	if defaultPortsManager == nil {
+		/**
+		initial operation, read from configuration file
+		*/
+		csPorts := Utils.DefaultConfigReader().Get("FSP:csPorts").([]interface{})
+		dsPorts := Utils.DefaultConfigReader().Get("FSP:dsPorts").([]interface{})
+		portNum = len(dsPorts)
+		connPerPort = Utils.DefaultConfigReader().Get("FSP:connPerPort").(int)
+		prepareConnectionTimeout = Utils.DefaultConfigReader().Get("FSP:prepareConnectionTimeout").(int)
+		var portsManager = PortsManager{
+			availableConnections: make(chan bool, connPerPort*portNum),
+			ports:                make([]Port, 0),
+		}
+		for i := 0; i < connPerPort*portNum; i++ {
+			portsManager.availableConnections <- true
+		}
+		for index, csPort := range csPorts {
+			portsManager.ports = append(portsManager.ports, *NewPort(csPort.(int), dsPorts[index].(int)))
+		}
+		defaultPortsManager = &portsManager
 	}
-	for i := 0; i < connPerPort*portNum; i++ {
-		portsManager.availableConnections <- true
-	}
-	portsManager.ports = append(portsManager.ports, *NewPort(8081, 8082), *NewPort(8083, 8084))
-	//test end
-	return &portsManager
+	return defaultPortsManager
 }
 
+// FindPort csPort,dsPort
 func (pm *PortsManager) FindPort(csPort int, dsPort int) (*Port, bool) { //用csPort查时dsPort设为0
 	if dsPort == 0 {
 		for index, _ := range pm.ports {
@@ -61,7 +69,7 @@ func (pm *PortsManager) FindPort(csPort int, dsPort int) (*Port, bool) { //用cs
 // PrepareConnection 返回值分别是，csPort,dsPort,connIndex,成功预留
 func (pm *PortsManager) PrepareConnection(sourceIP net.IP) (int, int, int, bool) {
 	timeoutChan := make(chan bool, 1)
-	go Utils.MakeTimeout(timeoutChan, prepareConnectionTimeout, time.Second) //设定超时，由配置文件决定
+	go Utils.MakeTimeout(timeoutChan, prepareConnectionTimeout, time.Millisecond) //设定超时，由配置文件决定
 	select {
 	case <-pm.availableConnections: //通过availableConnections实现pv，当总连接数不够时阻塞
 		//能连接
@@ -73,7 +81,7 @@ func (pm *PortsManager) PrepareConnection(sourceIP net.IP) (int, int, int, bool)
 			wg.Add(portNum)
 			for index, _ := range pm.ports {
 				port := &pm.ports[index]
-				go port.PrepareNewConnection(sourceIP, &ctx, &wg, found, connIndexChan)
+				go port.PrepareNewConnection(index, sourceIP, &ctx, &wg, found, connIndexChan)
 			}
 			allFinished := make(chan bool, 1)
 			//allFinished接收超时消息
