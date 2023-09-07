@@ -3,6 +3,7 @@ package PortManage
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"nas/project/src/Utils"
 	"net"
 	"sync"
@@ -49,7 +50,7 @@ func (port *Port) FindConnection(sourceIP net.IP) (*Connection, bool) {
 	return nil, false
 }
 
-func (port *Port) PrepareNewConnection(sourceIP net.IP, ctx *context.Context, wg *sync.WaitGroup, found chan *Port, connIndexChan chan int) {
+func (port *Port) PrepareNewConnection(portIndex int, sourceIP net.IP, ctx *context.Context, wg *sync.WaitGroup, found chan *Port, connIndexChan chan int) {
 	//found: 若本port可以接收这个连接则found<-本端口
 	defer func() {
 		if err := recover(); err != nil {
@@ -61,6 +62,7 @@ func (port *Port) PrepareNewConnection(sourceIP net.IP, ctx *context.Context, wg
 	}()
 	<-port.totalConnectionLock
 	if port.totalConnection >= connPerPort {
+		fmt.Println(port.totalConnection)
 		port.totalConnectionLock <- true
 		return
 	}
@@ -77,8 +79,13 @@ func (port *Port) PrepareNewConnection(sourceIP net.IP, ctx *context.Context, wg
 			}
 		}
 	}
+	randomSource := rand.NewSource(time.Now().UnixNano())           // 创建随机数源
+	randomGenerator := rand.New(randomSource)                       // 创建随机数生成器
+	randomSleep := randomGenerator.Intn(1000) * min(portIndex, 400) // 生成 1 到 100 范围内的随机整数
+	time.Sleep(time.Duration(randomSleep) * time.Nanosecond)
 	select {
 	case <-(*ctx).Done():
+		port.totalConnection -= 1
 		return
 	default:
 		break
@@ -86,21 +93,17 @@ func (port *Port) PrepareNewConnection(sourceIP net.IP, ctx *context.Context, wg
 	//本port可以接收这个连接，预留connection
 	connIndex, _ := port.reserveConnection(sourceIP)
 	connIndexChan <- connIndex
+	close(connIndexChan)
 	found <- port
 	go func() { //处理超时无连接
-		timeoutChan := make(chan bool, 1) //超时通道
-		Utils.MakeTimeout(timeoutChan, 500, time.Millisecond)
+		timeoutChan := make(chan bool, 1)              //超时通道
+		Utils.MakeTimeout(timeoutChan, 5, time.Minute) //
 		select {
 		case <-timeoutChan:
 			//超时未连接就将预留取消
 			port.DisConnectByIndex(connIndex, sourceIP)
-		case <-port.activeConnections[connIndex].cs2ds: //控制流连接成功
-			select {
-			case <-timeoutChan: //超时
-				port.DisConnectByIndex(connIndex, sourceIP) //解除占用
-			case <-port.activeConnections[connIndex].ds2cs:
-				return
-			}
+		case <-port.activeConnections[connIndex].ds2cs:
+			return
 		}
 	}()
 	return

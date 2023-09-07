@@ -25,7 +25,7 @@ func GetNormalRouter() *gin.Engine {
 			userFileApi.PUT("/", controllers.MoveFile)
 			userFileApi.GET("/uploading", controllers.GetUnfinishedUpload)
 			userFileApi.POST("/small", controllers.UploadSmallFile)
-			userFileApi.POST("/large", controllers.UploadLargeFile)
+			userFileApi.GET("/large", controllers.LargeFileTransitionPrepare)
 		}
 		userApi.GET("/dir/:dir_path/:order/:page_num", controllers.CheckDir)
 	}
@@ -35,7 +35,7 @@ func GetNormalRouter() *gin.Engine {
 
 func RunTLSOnConfig(router *gin.Engine) {
 	serverPort := Utils.DefaultConfigReader().Get("Server:port").(int)
-	router.Use(middleware.TlsHandler(serverPort))
+	//router.Use(middleware.TlsHandler(serverPort))
 	keyPath := Utils.DefaultConfigReader().Get("TLS:keyPath").(string)
 	pemPath := Utils.DefaultConfigReader().Get("TLS:pemPath").(string)
 	err := router.RunTLS(":"+strconv.Itoa(serverPort), pemPath, keyPath)
