@@ -177,10 +177,9 @@ func (port *Port) reserveConnection(sourceIP net.IP) (int, bool) { //reserveConn
 func (port *Port) DisConnectByIP(sourceIP net.IP) bool {
 	for index, _ := range port.activeConnections {
 		conn := port.activeConnections[index]
-		if ok := conn.SetToIfEqual(sourceIP, nil); ok {
-			return true
+		if conn.GetSourceIP().Equal(sourceIP) {
+			port.activeConnections[index].Reset()
 		}
-
 	}
 	return false
 }

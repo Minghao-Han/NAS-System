@@ -1,6 +1,7 @@
 package PortManage
 
 import (
+	"nas/project/src/Utils"
 	"net"
 	"sync"
 )
@@ -69,6 +70,8 @@ func (conn *Connection) Reset() {
 	conn.ipRWLock.Lock()
 	conn.sourceIp = nil
 	conn.ipRWLock.Unlock()
+	Utils.ClearChannel(conn.cs2ds)
+	Utils.ClearChannel(conn.ds2cs)
 }
 
 func (conn *Connection) LockIP() {
