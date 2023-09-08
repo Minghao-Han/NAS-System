@@ -12,6 +12,7 @@ import (
 	"os"
 	"strconv"
 	"sync"
+	"time"
 )
 
 var (
@@ -110,33 +111,34 @@ func LargeFileTransitionPrepare(c *gin.Context) { /*负责先做些基本的检�
 var portsManager = PortManage.DefaultPortsManager()
 
 func CsForUpload(c *gin.Context) {
-	//	/**/
-	//	sourceIP := net.ParseIP(c.ClientIP())
-	//	url := c.Request.URL
-	//	_, portStr, _ := net.SplitHostPort(url.Host)
-	//	port, err := strconv.Atoi(portStr)
-	//	if err != nil {
-	//		c.JSON(http.StatusBadRequest, gin.H{
-	//			"msg": err.Error(),
-	//		})
-	//		return
-	//	}
-	//	portEntity, found := portsManager.FindPort(port, 0)
-	//	if !found {
-	//		c.JSON(http.StatusBadRequest, gin.H{
-	//			"msg": "didn't find port info",
-	//		})
-	//		return
-	//	}
-	//	connection, reserved := portEntity.FindConnection(sourceIP)
-	//	if !reserved {
-	//		c.JSON(http.StatusUnprocessableEntity, gin.H{
-	//			"msg": "reservation didn't find",
-	//		})
-	//		return
-	//	}
-	//	cs2ds := connection.GetCS2DS()
-	//	/**/
+	///*验证connection预留信息*/
+	//sourceIP := net.ParseIP(c.ClientIP())
+	//_, portStr, _ := net.SplitHostPort(c.Request.Host)
+	//port, err := strconv.Atoi(portStr)
+	//if err != nil {
+	//	c.JSON(http.StatusBadRequest, gin.H{
+	//		"msg": err.Error(),
+	//	})
+	//	return
+	//}
+	//portEntity, found := portsManager.FindPort(0, port)
+	//if !found {
+	//	c.JSON(http.StatusBadRequest, gin.H{
+	//		"msg": "didn't find port info",
+	//	})
+	//	return
+	//}
+	//connection, reserved := portEntity.FindConnection(sourceIP)
+	//if !reserved {
+	//	c.JSON(http.StatusUnprocessableEntity, gin.H{
+	//		"msg": "reservation didn't find",
+	//	})
+	//	return
+	//}
+	//defer portEntity.DisConnectByIP(sourceIP) //断开连接
+	//connection.GetDS2CS() <- -1
+	//cs2ds := connection.GetCS2DS()
+
 }
 
 func DsForUpload(c *gin.Context) {
@@ -154,8 +156,8 @@ func CsForDownload(c *gin.Context) {
 		return
 	}
 	sourceIP := net.ParseIP(c.ClientIP())
-	url := c.Request.URL
-	_, portStr, _ := net.SplitHostPort(url.Host)
+
+	_, portStr, _ := net.SplitHostPort(c.Request.Host)
 	port, err := strconv.Atoi(portStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -178,9 +180,24 @@ func CsForDownload(c *gin.Context) {
 		return
 	}
 	cs2ds := connection.GetCS2DS()
-	cs2ds <- opcode
+	go func() {
+		cs2ds <- opcode
+	}()
+	return
 }
 
+func DsForDownloadTest(c *gin.Context) {
+	c.Header("Content-Disposition", "attachment; filename=aa")
+	c.Header("Content-Type", "application/octet-stream")
+	c.Header("Connection", "close")
+	for i := 0; i < 3; i++ {
+		c.Stream(func(w io.Writer) bool {
+			w.Write([]byte(time.Now().String()))
+			w.Write([]byte("hello world" + strconv.Itoa(i) + "\n"))
+			return false
+		})
+	}
+}
 func DsForDownload(c *gin.Context) {
 	/*验证connection预留信息*/
 	sourceIP := net.ParseIP(c.ClientIP())
@@ -220,11 +237,13 @@ func DsForDownload(c *gin.Context) {
 		})
 		return
 	}
+	////fileInfo, _ := os.Stat(Service.GetFullFilePath(filePath, userId))
 	defer file.Close()
-	/*设置响应头*/
+	///*设置响应头*/
 	c.Header("Content-Disposition", "attachment; filename="+filePath)
-	c.Header("Content-Type", "application/octet-stream")
-	/*写入输出流*/
+	//c.Header("Content-Type", "application/octet-stream")
+	c.Header("Connection", "close")
+	///*写入输出流*/
 	chaDecipher := Utils.DefaultChaEncryptor()
 	var offset int64 = 0
 	ciphertext := make([]byte, bufferSize)
@@ -246,7 +265,11 @@ func DsForDownload(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"msg": "opcode invalid",
 			})
-			return
+			break
+		}
+		if c.IsAborted() {
+			c.AbortWithStatus(499)
+			break
 		}
 		/*解密*/
 		n, err := file.ReadAt(ciphertext, offset)
@@ -254,7 +277,7 @@ func DsForDownload(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"msg": err.Error(),
 			})
-			return
+			break
 		}
 		if n == 0 {
 			break //跳出for循环
@@ -271,18 +294,14 @@ func DsForDownload(c *gin.Context) {
 			}()
 		}
 		wg.Wait()
-		clientDisconnected := c.Stream(func(w io.Writer) bool {
-			w.Write(plaintext[:n])
+		c.Stream(func(w io.Writer) bool {
+			//w.Write(plaintext[:n])
+			w.Write([]byte(ciphertext[:n]))
 			return false
 		})
-		if clientDisconnected {
-			break
-		}
 		offset += int64(n)
 	}
-	c.Writer.Flush()
-	//c.Stream(func(w io.Writer) bool { //结束文件流
-	//	return false
-	//})
+	//c.Writer.Flush()
+	portEntity.DisConnectByIP(sourceIP)
 	return
 }
