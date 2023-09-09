@@ -109,3 +109,15 @@ func toFileInfo(osFileInfos []os.FileInfo) []FileInfo {
 	}
 	return toBeReturn
 }
+
+func FileExists(filePath string, userId int) bool {
+	userRoot := diskRoot + strconv.Itoa(userId)
+	fullFilePath := userRoot + filePath
+	if _, err := os.Stat(fullFilePath); os.IsExist(err) { //文件存在
+		return true
+	}
+	return false
+}
+func GetFullFilePath(filePath string, userId int) string {
+	return diskRoot + strconv.Itoa(userId) + filePath
+}
