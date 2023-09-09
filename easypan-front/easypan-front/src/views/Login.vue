@@ -135,7 +135,6 @@ import md5 from "js-md5";
 import axios from "axios";
 
 
-
 const { proxy } = getCurrentInstance();
 const router = useRouter();
 const route = useRoute();
@@ -276,7 +275,7 @@ const doSubmit = () => {
   "password":"123456"
 }
 
-    axios.post('https://localhost:443/api/login', data, {
+    axios.post('https://localhost:443/login', data, {
       headers: {
         'Content-Type': 'application/json'
       }
@@ -284,54 +283,64 @@ const doSubmit = () => {
         .then(response => {
           // 处理响应
           console.log(response.data);
+          console.log(response);
+          proxy.VueCookies.set("userInfo", response.config.data, 0);
+          console.log(proxy.VueCookies.get("userInfo"))
+          //保存token
+          //跳转路由
+         localStorage.setItem("token",response.data.token)
         })
         .catch(error => {
           // 处理错误
           console.error(error);
         });
 
-    let result = await proxy.Request({
-      url: url,
-      data:JSON.stringify(data),
-
-      headers: {
-        'Content-Type': 'application/json'
-      }
-
-    });
-
-    if (!result) {
-      return;
-    }
+    // let result = await proxy.Request({
+    //   url: url,
+    //   data:JSON.stringify(data),
+    //
+    //   headers: {
+    //     'Content-Type': 'application/json'
+    //   }
+    //
+    // });
     console.log("登录")
-    //注册返回
-    if (opType.value == 0) {
-      proxy.Message.success("注册成功,请登录");
-      showPanel(1);
-    } else if (opType.value == 1) {
-      //登录
+    proxy.Message.success("登录成功");
+    await router.push('/').catch(err => {
+      console.log(err)
+    })
 
-      if (params.rememberMe) {
-        const loginInfo = {
-          email: params.email,
-          password: params.password,
-          rememberMe: params.rememberMe,
-        };
-        proxy.VueCookies.set("loginInfo", loginInfo, "7d");
-      } else {
-        proxy.VueCookies.remove("loginInfo");
-      }
-      proxy.Message.success("登录成功");
-      //存储cookie
-      proxy.VueCookies.set("userInfo", result.data, 0);
-      //重定向到原始页面
-      const redirectUrl = route.query.redirectUrl || "/";
-      router.push(redirectUrl);
-    } else if (opType.value == 2) {
-      //重置密码
-      proxy.Message.success("重置密码成功,请登录");
-      showPanel(1);
-    }
+    //await router.replace({path: "/"})
+    //注册返回
+    // if (opType.value == 0) {
+    //   proxy.Message.success("注册成功,请登录");
+    //   showPanel(1);
+    // } else if (opType.value == 1) {
+    //   //登录
+    //
+    //   if (params.rememberMe) {
+    //     const loginInfo = {
+    //       email: params.email,
+    //       password: params.password,
+    //       rememberMe: params.rememberMe,
+    //     };
+    //     proxy.VueCookies.set("loginInfo", loginInfo, "7d");
+    //   } else {
+    //     proxy.VueCookies.remove("loginInfo");
+    //   }
+    //   proxy.Message.success("登录成功");
+    //   //存储cookie
+    //   proxy.VueCookies.set("userInfo", result.data, 0);
+    //
+    //   //重定向到原始页面
+    //   const redirectUrl = route.query.redirectUrl || "/";
+    //   router.push(redirectUrl);
+    // } else if (opType.value == 2) {
+    //   //重置密码
+    //   proxy.Message.success("重置密码成功,请登录");
+    //   showPanel(1);
+    // }
+
   });
 };
 

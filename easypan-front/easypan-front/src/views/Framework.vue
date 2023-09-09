@@ -30,11 +30,12 @@
           <div class="user-info">
             <div class="avatar">
               <Avatar
-                :userId="userInfo.userId"
+                :userId="userInfo.username"
                 :avatar="userInfo.avatar"
                 :timestamp="timestamp"
                 :width="46"
               ></Avatar>
+
             </div>
             <span class="nick-name">{{ userInfo.nickName }}</span>
           </div>
@@ -57,13 +58,14 @@
         <div class="menu-list">
           <template v-for="item in menus">
             <div
-              v-if="item.allShow || (!item.allShow && userInfo.admin)"
+              v-if="item.allShow || (!item.allShow && false)"
               @click="jump(item)"
               :class="[
                 'menu-item',
                 item.menuCode == currentMenu.menuCode ? 'active' : '',
               ]"
             >
+<!--              v-if="item.allShow || (!item.allShow && userInfo.admin)"-->
               <div :class="['iconfont', 'icon-' + item.icon]"></div>
               <div class="text">
                 {{ item.name }}
@@ -174,7 +176,14 @@ const uploadCallbackHandler = () => {
 
 const timestamp = ref(0);
 //获取用户信息
-const userInfo = ref(proxy.VueCookies.get("userInfo"));
+//const userInfo = ref(proxy.VueCookies.get("userInfo"));
+const userInfo = {
+  username:"hhh",
+  avatar:"hhh",
+  nickName:"hhh",
+}
+
+console.log(userInfo)
 const menus = [
   {
     icon: "cloude",

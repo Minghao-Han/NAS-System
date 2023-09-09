@@ -14,6 +14,10 @@
               <span class="iconfont icon-upload"></span>
               上传
             </el-button>
+            <el-button type="primary" @click="downloadFile">
+              <span class="iconfont icon-download"></span>
+              下载
+            </el-button>
           </el-upload>
         </div>
         <el-button type="success" @click="newFolder" v-if="category == 'all'">
@@ -185,10 +189,19 @@ const { proxy } = getCurrentInstance();
 const router = useRouter();
 const route = useRoute();
 const emit = defineEmits(["addFile"]);
+import export_excel  from "../../Func/download";
 //添加文件
+
+
 const addFile = async (fileData) => {
   emit("addFile", { file: fileData.file, filePid: currentFolder.value.fileId });
 };
+
+const downloadFile = async () => {
+      console.log("执行")
+        export_excel()
+}
+
 //添加文件回调
 const reload = () => {
   showLoading.value = false;

@@ -15,7 +15,7 @@ func GetNormalRouter() *gin.Engine {
 	serverPort := Utils.DefaultConfigReader().Get("Server:port").(int)
 	NormalRouter.Use(cors.Default())
 	NormalRouter.Use(middleware.TlsHandler(serverPort))
-	NormalRouter.POST("/api/login", controllers.Login)
+	NormalRouter.POST("/login", controllers.Login)
 	//用户路由组
 	userApi := NormalRouter.Group("/user")
 	{
