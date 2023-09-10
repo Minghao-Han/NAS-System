@@ -2,17 +2,20 @@ package Service
 
 import (
 	"fmt"
+	uploadDA "nas/project/src/DA/uploadLogDA"
+	"nas/project/src/DA/userDA"
 	"nas/project/src/Utils"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
 var diskRoot = Utils.DefaultConfigReader().Get("DiskRoot").(string)
 
 func DeleteFile(userId int, filePath string) error {
-	fileFullPath := diskRoot + strconv.Itoa(userId) + filePath
-	_, existErr := os.Stat(fileFullPath)
+	fileFullPath := GetFullFilePath(filePath, userId)
+	fileInfo, existErr := os.Stat(fileFullPath)
 	if os.IsNotExist(existErr) { //文件不存在
 		return existErr
 	}
@@ -21,6 +24,16 @@ func DeleteFile(userId int, filePath string) error {
 		return rmErr
 	}
 	/*还要删掉数据库中对应的行*/
+	_, err := uploadDA.DeleteByPath(filePath) //用用户相对路径而不是跟路径，避免泄露
+	if err != nil {
+		return err
+	}
+	user, _ := userDA.FindById(userId)
+	if user.Capacity-user.Margin < uint64(fileInfo.Size()) {
+		return fmt.Errorf("delete err")
+	}
+	user.Margin += uint64(fileInfo.Size())
+	userDA.Update(*user)
 	return nil
 }
 
@@ -120,4 +133,7 @@ func FileExists(filePath string, userId int) bool {
 }
 func GetFullFilePath(filePath string, userId int) string {
 	return diskRoot + strconv.Itoa(userId) + filePath
+}
+func GetUserRelativePath(fullFilePath string, userId int) string {
+	return strings.Trim(fullFilePath, diskRoot+strconv.Itoa(userId))
 }

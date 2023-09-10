@@ -84,3 +84,21 @@ func LargeFileUploadPrepare(path string, fileSize uint64, userId int) error {
 	}
 	return nil
 }
+
+func DuplicateFileName(filePath string) string {
+	_, duplicateErr := os.Stat(filePath)
+	index := 0
+	newFilePath := filePath
+	for !os.IsNotExist(duplicateErr) {
+		newFilePath = filePath
+		index++
+		ext := filepath.Ext(newFilePath)
+		base := strings.TrimSuffix(newFilePath, ext)
+
+		newBase := base + "_" + strconv.Itoa(index)
+		newFilePath = newBase + ext
+		_, duplicateErr = os.Stat(newFilePath)
+	}
+	filePath = newFilePath
+	return filePath
+}
