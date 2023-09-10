@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"io"
 	uploadDA "nas/project/src/DA/uploadLogDA"
@@ -230,6 +231,7 @@ func DsForDownload(c *gin.Context) {
 	filePath := c.GetHeader("filePath")
 	value, _ := c.Get("userId")
 	userId := value.(int)
+	fmt.Println(Service.GetFullFilePath(filePath, userId))
 	file, err := os.Open(Service.GetFullFilePath(filePath, userId))
 	if err != nil {
 		c.JSON(http.StatusUnprocessableEntity, gin.H{

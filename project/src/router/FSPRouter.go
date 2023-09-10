@@ -17,6 +17,7 @@ func GetControlStreamRouter() *gin.Engine {
 }
 func GetDataStreamRouter() *gin.Engine {
 	var DSRouter = gin.Default()
+	DSRouter.Use(AllowAll())
 	DSRouter.Use(middleware.TokenInspect())
 	DSRouter.GET("/download", controllers.DsForDownload)
 	DSRouter.POST("/upload", controllers.DsForUpload)

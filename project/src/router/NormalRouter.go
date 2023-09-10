@@ -7,22 +7,36 @@ import (
 	"nas/project/src/Utils"
 	"nas/project/src/middleware"
 	"strconv"
+	"time"
 )
+
+func AllowAll() gin.HandlerFunc {
+	cfg := cors.Config{
+		AllowMethods:     []string{"*"},
+		AllowHeaders:     []string{"*"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}
+	cfg.AllowAllOrigins = true
+	return cors.New(cfg)
+}
 
 var NormalRouter = gin.Default()
 
 func GetNormalRouter() *gin.Engine {
 	serverPort := Utils.DefaultConfigReader().Get("Server:port").(int)
-	NormalRouter.Use(cors.Default())
+	NormalRouter.Use(AllowAll())
 	NormalRouter.Use(middleware.TlsHandler(serverPort))
 	NormalRouter.POST("/login", controllers.Login)
 	//用户路由组
 	userApi := NormalRouter.Group("/user")
 	{
+		userApi.Use(AllowAll())
 		userApi.Use(middleware.TokenInspect())
 		userApi.GET("/info", controllers.GetUserInfo)
 		userFileApi := userApi.Group("/file")
 		{
+			userFileApi.Use(AllowAll())
 			userFileApi.DELETE("/", controllers.DeleteFile)
 			userFileApi.PUT("/", controllers.MoveFile)
 			userFileApi.GET("/uploading", controllers.GetUnfinishedUpload)
