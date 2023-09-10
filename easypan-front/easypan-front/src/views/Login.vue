@@ -117,6 +117,13 @@
             <span v-if="opType == 1">登录</span>
             <span v-if="opType == 2">重置密码</span>
           </el-button>
+          <el-button
+            type="primary"
+            class="op-btn"
+            @click="downloadFile"
+            size="large"
+          > <span>测试下载</span>
+          </el-button>
         </el-form-item>
 
       </el-form>
@@ -133,7 +140,14 @@ import { ref, reactive, getCurrentInstance, nextTick, onMounted } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import md5 from "js-md5";
 import axios from "axios";
+import download from "../Func/download";
+import exportData  from "../Func/download";
+//添加文件
 
+const downloadFile = async () => {
+  console.log("执行")
+  await exportData()
+}
 
 const { proxy } = getCurrentInstance();
 const router = useRouter();
@@ -143,7 +157,6 @@ const api = {
   register: "/register",
   login: "/login",
   resetPwd: "/resetPwd",
-  //qqlogin: "/qqlogin",
 };
 
 // 0:注册 1:登录 2:重置密码
@@ -306,9 +319,11 @@ const doSubmit = () => {
     // });
     console.log("登录")
     proxy.Message.success("登录成功");
-    await router.push('/').catch(err => {
-      console.log(err)
-    })
+
+
+    // await router.push('/').catch(err => {
+    //   console.log(err)
+    // })
 
     //await router.replace({path: "/"})
     //注册返回

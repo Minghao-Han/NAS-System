@@ -91,11 +91,10 @@ const router = createRouter({
 })
 
 router.beforeEach((to, from, next) => {
-  // const userInfo = VueCookies.get("userInfo");
-  // if (to.meta.needLogin != null && to.meta.needLogin && userInfo == null) {
-  //   router.push("/login");
-  // }
-  next();
+  if(to.path==='/login') return next()
+  const tokenstr = localStorage.getItem("token");
+  if (!tokenstr) return next('/login')
+  next()
 })
 
 export default router
