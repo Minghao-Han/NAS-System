@@ -5,6 +5,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"io"
 	uploadDA "nas/project/src/DA/uploadLogDA"
+	"nas/project/src/DA/userDA"
+	"nas/project/src/Entities"
 	"nas/project/src/Service"
 	"nas/project/src/Service/PortManage"
 	"nas/project/src/Utils"
@@ -24,6 +26,7 @@ var (
 	sectionNum        = Utils.DefaultConfigReader().Get("download:sectionNum").(int)
 	sectionSize       = bufferSize / int64(sectionNum)
 )
+var portsManager = PortManage.DefaultPortsManager()
 
 func GetUnfinishedUpload(c *gin.Context) {
 	value, _ := c.Get("userId")
@@ -109,8 +112,6 @@ func LargeFileTransitionPrepare(c *gin.Context) { /*负责先做些基本的检�
 	return
 }
 
-var portsManager = PortManage.DefaultPortsManager()
-
 func CsForUpload(c *gin.Context) {
 	///*验证connection预留信息*/
 	//sourceIP := net.ParseIP(c.ClientIP())
@@ -142,8 +143,105 @@ func CsForUpload(c *gin.Context) {
 
 }
 
+// DsForUpload param
 func DsForUpload(c *gin.Context) {
-
+	/*获取和检查参数*/
+	/*验证margin*/
+	/*开始写*/
+	/*检查连接*/
+	port, connection, err := verifyConnReservation(c)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"msg": err.Error(),
+		})
+	}
+	defer port.DisConnectByIP(net.ParseIP(c.ClientIP()))
+	connection.GetDS2CS() <- -1
+	/*获取参数*/
+	offset, err := strconv.Atoi(c.GetHeader("offset"))
+	filename := c.GetHeader("filename")
+	path := c.GetHeader("path")
+	fileSize, err := strconv.Atoi(c.GetHeader("fileSize"))
+	value, _ := c.Get("userId")
+	uploadId, err := strconv.Atoi(c.GetHeader("uploadId"))
+	userId := value.(int)
+	user, err := userDA.FindById(userId)
+	if path == "" || filename == "" || err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"msg": "missing required info \n" + err.Error(),
+		})
+		return
+	}
+	if uint64(fileSize-offset) > user.Margin {
+		c.JSON(http.StatusUnprocessableEntity, gin.H{
+			"msg": "no more space for this file",
+		})
+	}
+	fullFilePath := Service.GetFullFilePath(path, userId)
+	/*如果是续传就检查数据库中的项正不正确，如果是新上传就要检查是否有同名文件*/
+	if uploadId != -1 {
+		uploadLog, _ := uploadDA.FindById(uploadId)
+		if uploadLog.Finished == true || uploadLog.Received_bytes != uint64(offset) || uploadLog.Path != path {
+			c.JSON(http.StatusUnprocessableEntity, gin.H{
+				"msg": "resume upload failed",
+			})
+		}
+	} else {
+		fullFilePath = Service.DuplicateFileName(fullFilePath)
+		uploadId, _ = uploadDA.Insert(Entities.UploadLog{
+			Id:             0,
+			Uploader:       userId,
+			Path:           Service.GetUserRelativePath(fullFilePath, userId),
+			Finished:       false,
+			Received_bytes: 0,
+			Size:           uint64(fileSize),
+		})
+	}
+	file, err := os.Open(fullFilePath)
+	defer file.Close()
+	if err != nil {
+		c.JSON(http.StatusUnprocessableEntity, gin.H{
+			"msg": err.Error(),
+		})
+	}
+	/*从请求头读取*/
+	plaintext := make([]byte, bufferSize)
+	ciphertext := make([]byte, bufferSize)
+	chaDecipher := Utils.DefaultChaEncryptor()
+	var receivedBytes uint64 = 0
+	for {
+		requestBodyReader := c.Request.Body
+		n, err := requestBodyReader.Read(plaintext)
+		if err != nil {
+			c.JSON(http.StatusServiceUnavailable, gin.H{
+				"msg": err.Error(),
+			})
+			break
+		}
+		if n == 0 {
+			time.Sleep(4 * time.Millisecond)
+		}
+		loopTimes := int((int64(n) + sectionSize - 1) / sectionSize)
+		for i := 0; i < loopTimes; i++ {
+			index := int64(i)
+			upto := min((index+1)*sectionSize, int64(n))
+			wg := sync.WaitGroup{}
+			wg.Add(loopTimes)
+			go func() {
+				chaDecipher.Decrypt(plaintext[index*sectionSize:upto], ciphertext[index*sectionSize:upto])
+				wg.Done()
+			}()
+			wg.Wait()
+		}
+		if _, err = file.Write(ciphertext); err != nil {
+			c.JSON(http.StatusServiceUnavailable, gin.H{
+				"msg": err.Error(),
+			})
+			break
+		}
+		receivedBytes += uint64(n)
+	}
+	uploadLog, _ := uploadDA.FindById(uploadId)
 }
 
 func CsForDownload(c *gin.Context) {
@@ -156,29 +254,11 @@ func CsForDownload(c *gin.Context) {
 		})
 		return
 	}
-	sourceIP := net.ParseIP(c.ClientIP())
-
-	_, portStr, _ := net.SplitHostPort(c.Request.Host)
-	port, err := strconv.Atoi(portStr)
+	_, connection, err := verifyConnReservation(c)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"msg": err.Error(),
 		})
-		return
-	}
-	portEntity, found := portsManager.FindPort(port, 0)
-	if !found {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"msg": "didn't find port info",
-		})
-		return
-	}
-	connection, reserved := portEntity.FindConnection(sourceIP)
-	if !reserved {
-		c.JSON(http.StatusUnprocessableEntity, gin.H{
-			"msg": "reservation didn't find",
-		})
-		return
 	}
 	cs2ds := connection.GetCS2DS()
 	go func() {
@@ -187,51 +267,21 @@ func CsForDownload(c *gin.Context) {
 	return
 }
 
-func DsForDownloadTest(c *gin.Context) {
-	c.Header("Content-Disposition", "attachment; filename=aa")
-	c.Header("Content-Type", "application/octet-stream")
-	c.Header("Connection", "close")
-	for i := 0; i < 3; i++ {
-		c.Stream(func(w io.Writer) bool {
-			w.Write([]byte(time.Now().String()))
-			w.Write([]byte("hello world" + strconv.Itoa(i) + "\n"))
-			return false
-		})
-	}
-}
 func DsForDownload(c *gin.Context) {
 	/*验证connection预留信息*/
-	sourceIP := net.ParseIP(c.ClientIP())
-	_, portStr, _ := net.SplitHostPort(c.Request.Host)
-	port, err := strconv.Atoi(portStr)
+	port, connection, err := verifyConnReservation(c)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"msg": err.Error(),
 		})
-		return
 	}
-	portEntity, found := portsManager.FindPort(0, port)
-	if !found {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"msg": "didn't find port info",
-		})
-		return
-	}
-	connection, reserved := portEntity.FindConnection(sourceIP)
-	if !reserved {
-		c.JSON(http.StatusUnprocessableEntity, gin.H{
-			"msg": "reservation didn't find",
-		})
-		return
-	}
-	defer portEntity.DisConnectByIP(sourceIP) //断开连接
-	connection.GetDS2CS() <- -1
+	defer port.DisConnectByIP(net.ParseIP(c.ClientIP())) //断开连接
 	cs2ds := connection.GetCS2DS()
-	/*获取文件reader*/
-	filePath := c.GetHeader("filePath")
+	/*获取请求头其他信息*/
 	value, _ := c.Get("userId")
 	userId := value.(int)
-	fmt.Println(Service.GetFullFilePath(filePath, userId))
+	filePath := c.GetHeader("filePath")
+	/*获取文件reader*/
 	file, err := os.Open(Service.GetFullFilePath(filePath, userId))
 	if err != nil {
 		c.JSON(http.StatusUnprocessableEntity, gin.H{
@@ -239,11 +289,11 @@ func DsForDownload(c *gin.Context) {
 		})
 		return
 	}
-	////fileInfo, _ := os.Stat(Service.GetFullFilePath(filePath, userId))
+	connection.GetDS2CS() <- -1
 	defer file.Close()
 	///*设置响应头*/
 	c.Header("Content-Disposition", "attachment; filename="+filePath)
-	//c.Header("Content-Type", "application/octet-stream")
+	c.Header("Content-Type", "application/octet-stream")
 	c.Header("Connection", "close")
 	///*写入输出流*/
 	chaDecipher := Utils.DefaultChaEncryptor()
@@ -284,6 +334,7 @@ func DsForDownload(c *gin.Context) {
 		if n == 0 {
 			break //跳出for循环
 		}
+		//向上取整
 		loopTimes := int((int64(n) + sectionSize - 1) / sectionSize)
 		wg := sync.WaitGroup{}
 		wg.Add(int(loopTimes))
@@ -298,12 +349,41 @@ func DsForDownload(c *gin.Context) {
 		wg.Wait()
 		c.Stream(func(w io.Writer) bool {
 			//w.Write(plaintext[:n])
-			w.Write([]byte(ciphertext[:n]))
+			w.Write(plaintext[:n])
 			return false
 		})
 		offset += int64(n)
 	}
 	//c.Writer.Flush()
-	portEntity.DisConnectByIP(sourceIP)
 	return
+}
+
+//	func DsForDownloadTest(c *gin.Context) {
+//		c.Header("Content-Disposition", "attachment; filename=aa")
+//		c.Header("Content-Type", "application/octet-stream")
+//		c.Header("Connection", "close")
+//		for i := 0; i < 3; i++ {
+//			c.Stream(func(w io.Writer) bool {
+//				w.Write([]byte(time.Now().String()))
+//				w.Write([]byte("hello world" + strconv.Itoa(i) + "\n"))
+//				return false
+//			})
+//		}
+//	}
+func verifyConnReservation(c *gin.Context) (*PortManage.Port, *PortManage.Connection, error) {
+	sourceIP := net.ParseIP(c.ClientIP())
+	_, portStr, _ := net.SplitHostPort(c.Request.Host)
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		return nil, nil, err
+	}
+	portEntity, found := portsManager.FindPort(0, port)
+	if !found {
+		return nil, nil, fmt.Errorf("didn't find port info")
+	}
+	connection, reserved := portEntity.FindConnection(sourceIP)
+	if !reserved {
+		return nil, nil, fmt.Errorf("reservation didn't find")
+	}
+	return portEntity, connection, nil
 }
