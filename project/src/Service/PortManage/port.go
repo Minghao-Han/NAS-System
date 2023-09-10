@@ -54,7 +54,7 @@ func (port *Port) PrepareNewConnection(portIndex int, sourceIP net.IP, ctx *cont
 	//found: 若本port可以接收这个连接则found<-本端口
 	defer func() {
 		if err := recover(); err != nil {
-			fmt.Println(err) //处理写入found,connIndexChan可能导致的写入关闭channel的异常
+			//fmt.Println(err) //处理写入found,connIndexChan可能导致的写入关闭channel的异常
 			wg.Done()
 		} else {
 			wg.Done()

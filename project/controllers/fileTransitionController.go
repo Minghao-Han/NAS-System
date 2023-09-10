@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"errors"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"io"
@@ -15,7 +16,6 @@ import (
 	"os"
 	"strconv"
 	"sync"
-	"time"
 )
 
 var (
@@ -143,7 +143,7 @@ func CsForUpload(c *gin.Context) {
 
 }
 
-// DsForUpload param
+// DsForUpload header: token,offset,filename,path,fileSize,uploadId
 func DsForUpload(c *gin.Context) {
 	/*获取和检查参数*/
 	/*验证margin*/
@@ -154,19 +154,22 @@ func DsForUpload(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"msg": err.Error(),
 		})
+		return
 	}
 	defer port.DisConnectByIP(net.ParseIP(c.ClientIP()))
 	connection.GetDS2CS() <- -1
 	/*获取参数*/
 	offset, err := strconv.Atoi(c.GetHeader("offset"))
 	filename := c.GetHeader("filename")
+	clientFilePath := c.GetHeader("clientFilePath")
 	path := c.GetHeader("path")
+	filePath := path + "/" + filename
 	fileSize, err := strconv.Atoi(c.GetHeader("fileSize"))
 	value, _ := c.Get("userId")
 	uploadId, err := strconv.Atoi(c.GetHeader("uploadId"))
 	userId := value.(int)
 	user, err := userDA.FindById(userId)
-	if path == "" || filename == "" || err != nil {
+	if path == "" || filename == "" || clientFilePath == "" || err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"msg": "missing required info \n" + err.Error(),
 		})
@@ -176,16 +179,20 @@ func DsForUpload(c *gin.Context) {
 		c.JSON(http.StatusUnprocessableEntity, gin.H{
 			"msg": "no more space for this file",
 		})
+		return
 	}
-	fullFilePath := Service.GetFullFilePath(path, userId)
+	fullFilePath := Service.GetFullFilePath(filePath, userId)
 	/*如果是续传就检查数据库中的项正不正确，如果是新上传就要检查是否有同名文件*/
+	var file *os.File
 	if uploadId != -1 {
 		uploadLog, _ := uploadDA.FindById(uploadId)
-		if uploadLog.Finished == true || uploadLog.Received_bytes != uint64(offset) || uploadLog.Path != path {
+		if uploadLog.Finished == true || uploadLog.Received_bytes != uint64(offset) || uploadLog.Path != filePath {
 			c.JSON(http.StatusUnprocessableEntity, gin.H{
 				"msg": "resume upload failed",
 			})
 		}
+		file, err = os.Open(fullFilePath)
+		defer file.Close()
 	} else {
 		fullFilePath = Service.DuplicateFileName(fullFilePath)
 		uploadId, _ = uploadDA.Insert(Entities.UploadLog{
@@ -195,31 +202,36 @@ func DsForUpload(c *gin.Context) {
 			Finished:       false,
 			Received_bytes: 0,
 			Size:           uint64(fileSize),
+			ClientFilePath: clientFilePath,
 		})
+		file, err = os.Create(fullFilePath)
+		defer file.Close()
 	}
-	file, err := os.Open(fullFilePath)
-	defer file.Close()
 	if err != nil {
 		c.JSON(http.StatusUnprocessableEntity, gin.H{
 			"msg": err.Error(),
 		})
+		return
 	}
 	/*从请求头读取*/
 	plaintext := make([]byte, bufferSize)
 	ciphertext := make([]byte, bufferSize)
 	chaDecipher := Utils.DefaultChaEncryptor()
 	var receivedBytes uint64 = 0
+	requestBodyReader := c.Request.Body
 	for {
-		requestBodyReader := c.Request.Body
-		n, err := requestBodyReader.Read(plaintext)
-		if err != nil {
+		n, readErr := requestBodyReader.Read(plaintext)
+		if readErr != nil && readErr != io.EOF && !errors.Is(readErr, http.ErrBodyReadAfterClose) { //读取出错
 			c.JSON(http.StatusServiceUnavailable, gin.H{
-				"msg": err.Error(),
+				"msg": readErr.Error(),
 			})
 			break
 		}
-		if n == 0 {
-			time.Sleep(4 * time.Millisecond)
+		if n == 0 && (readErr == io.EOF || errors.Is(readErr, http.ErrBodyReadAfterClose)) { //读到结束或连接断开
+			c.JSON(http.StatusOK, gin.H{
+				"msg": "uploaded",
+			})
+			break
 		}
 		loopTimes := int((int64(n) + sectionSize - 1) / sectionSize)
 		for i := 0; i < loopTimes; i++ {
@@ -242,6 +254,9 @@ func DsForUpload(c *gin.Context) {
 		receivedBytes += uint64(n)
 	}
 	uploadLog, _ := uploadDA.FindById(uploadId)
+	uploadLog.Received_bytes = receivedBytes
+	uploadDA.Update(*uploadLog)
+	return
 }
 
 func CsForDownload(c *gin.Context) {
@@ -274,6 +289,7 @@ func DsForDownload(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"msg": err.Error(),
 		})
+		return
 	}
 	defer port.DisConnectByIP(net.ParseIP(c.ClientIP())) //断开连接
 	cs2ds := connection.GetCS2DS()
@@ -293,7 +309,7 @@ func DsForDownload(c *gin.Context) {
 	defer file.Close()
 	///*设置响应头*/
 	c.Header("Content-Disposition", "attachment; filename="+filePath)
-	c.Header("Content-Type", "application/octet-stream")
+	//c.Header("Content-Type", "application/octet-stream")
 	c.Header("Connection", "close")
 	///*写入输出流*/
 	chaDecipher := Utils.DefaultChaEncryptor()
@@ -349,7 +365,7 @@ func DsForDownload(c *gin.Context) {
 		wg.Wait()
 		c.Stream(func(w io.Writer) bool {
 			//w.Write(plaintext[:n])
-			w.Write(plaintext[:n])
+			w.Write(ciphertext[:n])
 			return false
 		})
 		offset += int64(n)
