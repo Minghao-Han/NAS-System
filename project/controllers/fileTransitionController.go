@@ -227,7 +227,8 @@ func DsForUpload(c *gin.Context) {
 			})
 			break
 		}
-		if n == 0 && (readErr == io.EOF || errors.Is(readErr, http.ErrBodyReadAfterClose)) { //读到结束或连接断开
+		//if n == 0 && (readErr == io.EOF || errors.Is(readErr, http.ErrBodyReadAfterClose)) { //读到结束或连接断开
+		if n == 0 {
 			c.JSON(http.StatusOK, gin.H{
 				"msg": "uploaded",
 			})
@@ -240,12 +241,12 @@ func DsForUpload(c *gin.Context) {
 			wg := sync.WaitGroup{}
 			wg.Add(loopTimes)
 			go func() {
-				chaDecipher.Decrypt(plaintext[index*sectionSize:upto], ciphertext[index*sectionSize:upto])
+				chaDecipher.Encrypt(plaintext[index*sectionSize:upto], ciphertext[index*sectionSize:upto])
 				wg.Done()
 			}()
 			wg.Wait()
 		}
-		if _, err = file.Write(ciphertext); err != nil {
+		if _, err = file.Write(ciphertext[:n]); err != nil {
 			c.JSON(http.StatusServiceUnavailable, gin.H{
 				"msg": err.Error(),
 			})
@@ -309,67 +310,67 @@ func DsForDownload(c *gin.Context) {
 	defer file.Close()
 	///*设置响应头*/
 	c.Header("Content-Disposition", "attachment; filename="+filePath)
-	//c.Header("Content-Type", "application/octet-stream")
+	c.Header("Content-Type", "application/octet-stream")
 	c.Header("Connection", "close")
 	///*写入输出流*/
 	chaDecipher := Utils.DefaultChaEncryptor()
 	var offset int64 = 0
 	ciphertext := make([]byte, bufferSize)
 	plaintext := make([]byte, bufferSize)
-	for {
-		/*检查opcode*/
-		var opcode int64 = NO_OP
-		select {
-		case opcode = <-cs2ds:
-		default:
-			break
-		}
-		if opcode == STOP {
-			break
-		} else if opcode >= 0 { //opcode为正数时表示偏移多少
-			offset = opcode
-		} else if opcode == NO_OP {
-		} else { //错误的opcode
-			c.JSON(http.StatusBadRequest, gin.H{
-				"msg": "opcode invalid",
-			})
-			break
-		}
-		if c.IsAborted() {
-			c.AbortWithStatus(499)
-			break
-		}
-		/*解密*/
-		n, err := file.ReadAt(ciphertext, offset)
-		if err != nil && err.Error() != "EOF" { //文件读取出错
-			c.JSON(http.StatusBadRequest, gin.H{
-				"msg": err.Error(),
-			})
-			break
-		}
-		if n == 0 {
-			break //跳出for循环
-		}
-		//向上取整
-		loopTimes := int((int64(n) + sectionSize - 1) / sectionSize)
-		wg := sync.WaitGroup{}
-		wg.Add(int(loopTimes))
-		for index := 0; index < loopTimes; index++ {
-			index := int64(index)
-			upto := min((index+1)*sectionSize, int64(n))
-			go func() {
-				chaDecipher.Decrypt(ciphertext[index*sectionSize:upto], plaintext[index*sectionSize:upto])
-				wg.Done()
-			}()
-		}
-		wg.Wait()
-		c.Stream(func(w io.Writer) bool {
+	c.Stream(func(w io.Writer) bool {
+		for {
+			/*检查opcode*/
+			var opcode int64 = NO_OP
+			select {
+			case opcode = <-cs2ds:
+			default:
+				break
+			}
+			if opcode == STOP {
+				break
+			} else if opcode >= 0 { //opcode为正数时表示偏移多少
+				offset = opcode
+			} else if opcode == NO_OP {
+			} else { //错误的opcode
+				c.JSON(http.StatusBadRequest, gin.H{
+					"msg": "opcode invalid",
+				})
+				break
+			}
+			if c.IsAborted() {
+				c.AbortWithStatus(499)
+				break
+			}
+			/*解密*/
+			n, err := file.ReadAt(ciphertext, offset)
+			if err != nil && err.Error() != "EOF" { //文件读取出错
+				c.JSON(http.StatusBadRequest, gin.H{
+					"msg": err.Error(),
+				})
+				break
+			}
+			if n == 0 {
+				break //跳出for循环
+			}
+			//向上取整
+			loopTimes := int((int64(n) + sectionSize - 1) / sectionSize)
+			wg := sync.WaitGroup{}
+			wg.Add(int(loopTimes))
+			for index := 0; index < loopTimes; index++ {
+				index := int64(index)
+				upto := min((index+1)*sectionSize, int64(n))
+				go func() {
+					chaDecipher.Decrypt(ciphertext[index*sectionSize:upto], plaintext[index*sectionSize:upto])
+					wg.Done()
+				}()
+			}
+			wg.Wait()
 			//w.Write(plaintext[:n])
 			w.Write(ciphertext[:n])
-			return false
-		})
-		offset += int64(n)
-	}
+			offset += int64(n)
+		}
+		return false
+	})
 	//c.Writer.Flush()
 	return
 }

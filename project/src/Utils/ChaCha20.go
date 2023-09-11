@@ -63,7 +63,7 @@ func ChaEncrypt(key, nonce, plaintext []byte) ([]byte, error) {
 	return ciphertext, nil
 }
 
-// Decrypt 使用 ChaCha20 解密密文
+// ChaDecrypt 使用 ChaCha20 解密密文
 func ChaDecrypt(key, nonce, ciphertext []byte) ([]byte, error) {
 	c, err := chacha20.NewUnauthenticatedCipher(key, nonce)
 	if err != nil {
