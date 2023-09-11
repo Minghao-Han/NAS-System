@@ -48,7 +48,6 @@ func (cha *ChaChaEncryptor) Decrypt(ciphertext []byte, plaintext []byte) ([]byte
 		return nil, err
 	}
 	c.XORKeyStream(plaintext, ciphertext)
-
 	return plaintext, nil
 }
 func ChaEncrypt(key, nonce, plaintext []byte) ([]byte, error) {

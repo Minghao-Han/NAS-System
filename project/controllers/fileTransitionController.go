@@ -219,6 +219,7 @@ func DsForUpload(c *gin.Context) {
 	chaDecipher := Utils.DefaultChaEncryptor()
 	var receivedBytes uint64 = 0
 	requestBodyReader := c.Request.Body
+	defer requestBodyReader.Close()
 	for {
 		n, readErr := requestBodyReader.Read(plaintext)
 		if readErr != nil && readErr != io.EOF && !errors.Is(readErr, http.ErrBodyReadAfterClose) { //读取出错
@@ -235,17 +236,19 @@ func DsForUpload(c *gin.Context) {
 			break
 		}
 		loopTimes := int((int64(n) + sectionSize - 1) / sectionSize)
-		for i := 0; i < loopTimes; i++ {
-			index := int64(i)
+		wg := sync.WaitGroup{}
+		wg.Add(loopTimes)
+		for index := 0; index < loopTimes; index++ {
+			index := int64(index)
 			upto := min((index+1)*sectionSize, int64(n))
-			wg := sync.WaitGroup{}
-			wg.Add(loopTimes)
 			go func() {
 				chaDecipher.Encrypt(plaintext[index*sectionSize:upto], ciphertext[index*sectionSize:upto])
+				//copy(ciphertext[index*sectionSize:upto], plaintext[index*sectionSize:upto])
 				wg.Done()
 			}()
-			wg.Wait()
+
 		}
+		wg.Wait()
 		if _, err = file.Write(ciphertext[:n]); err != nil {
 			c.JSON(http.StatusServiceUnavailable, gin.H{
 				"msg": err.Error(),
@@ -352,21 +355,26 @@ func DsForDownload(c *gin.Context) {
 			if n == 0 {
 				break //跳出for循环
 			}
+			/**/
 			//向上取整
 			loopTimes := int((int64(n) + sectionSize - 1) / sectionSize)
 			wg := sync.WaitGroup{}
-			wg.Add(int(loopTimes))
+			wg.Add(loopTimes)
 			for index := 0; index < loopTimes; index++ {
 				index := int64(index)
 				upto := min((index+1)*sectionSize, int64(n))
 				go func() {
 					chaDecipher.Decrypt(ciphertext[index*sectionSize:upto], plaintext[index*sectionSize:upto])
+					//copy(plaintext[index*sectionSize:upto], ciphertext[index*sectionSize:upto])
+
+					fmt.Println(ciphertext[index*sectionSize : upto])
+					fmt.Println(upto-10, upto)
 					wg.Done()
 				}()
 			}
 			wg.Wait()
-			//w.Write(plaintext[:n])
-			w.Write(ciphertext[:n])
+			/**/
+			w.Write(plaintext[:n])
 			offset += int64(n)
 		}
 		return false
