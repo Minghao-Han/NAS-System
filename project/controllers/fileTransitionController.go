@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 	"github.com/gin-gonic/gin"
@@ -15,7 +16,6 @@ import (
 	"net/http"
 	"os"
 	"strconv"
-	"sync"
 )
 
 var (
@@ -169,7 +169,7 @@ func DsForUpload(c *gin.Context) {
 	uploadId, err := strconv.Atoi(c.GetHeader("uploadId"))
 	userId := value.(int)
 	user, err := userDA.FindById(userId)
-	if path == "" || filename == "" || clientFilePath == "" || err != nil {
+	if len(path) == 0 || len(filename) == 0 || len(clientFilePath) == 0 || err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"msg": "missing required info \n" + err.Error(),
 		})
@@ -213,50 +213,26 @@ func DsForUpload(c *gin.Context) {
 		})
 		return
 	}
-	/*从请求头读取*/
-	plaintext := make([]byte, bufferSize)
-	ciphertext := make([]byte, bufferSize)
-	chaDecipher := Utils.DefaultChaEncryptor()
 	var receivedBytes uint64 = 0
-	requestBodyReader := c.Request.Body
-	defer requestBodyReader.Close()
+	fileWriter := bufio.NewWriter(file)
+	plaintext := make([]byte, bufferSize)
+	/*从请求头读取*/
 	for {
-		n, readErr := requestBodyReader.Read(plaintext)
+		n, readErr := c.Request.Body.Read(plaintext)
 		if readErr != nil && readErr != io.EOF && !errors.Is(readErr, http.ErrBodyReadAfterClose) { //读取出错
-			c.JSON(http.StatusServiceUnavailable, gin.H{
-				"msg": readErr.Error(),
-			})
 			break
 		}
-		//if n == 0 && (readErr == io.EOF || errors.Is(readErr, http.ErrBodyReadAfterClose)) { //读到结束或连接断开
 		if n == 0 {
-			c.JSON(http.StatusOK, gin.H{
-				"msg": "uploaded",
-			})
 			break
 		}
-		loopTimes := int((int64(n) + sectionSize - 1) / sectionSize)
-		wg := sync.WaitGroup{}
-		wg.Add(loopTimes)
-		for index := 0; index < loopTimes; index++ {
-			index := int64(index)
-			upto := min((index+1)*sectionSize, int64(n))
-			go func() {
-				chaDecipher.Encrypt(plaintext[index*sectionSize:upto], ciphertext[index*sectionSize:upto])
-				//copy(ciphertext[index*sectionSize:upto], plaintext[index*sectionSize:upto])
-				wg.Done()
-			}()
-
-		}
-		wg.Wait()
-		if _, err = file.Write(ciphertext[:n]); err != nil {
-			c.JSON(http.StatusServiceUnavailable, gin.H{
-				"msg": err.Error(),
-			})
+		if _, err := fileWriter.Write(plaintext[:n]); err != nil {
 			break
 		}
 		receivedBytes += uint64(n)
 	}
+	c.JSON(http.StatusOK, gin.H{
+		"msg": "uploaded",
+	})
 	uploadLog, _ := uploadDA.FindById(uploadId)
 	uploadLog.Received_bytes = receivedBytes
 	uploadDA.Update(*uploadLog)
@@ -316,9 +292,8 @@ func DsForDownload(c *gin.Context) {
 	c.Header("Content-Type", "application/octet-stream")
 	c.Header("Connection", "close")
 	///*写入输出流*/
-	chaDecipher := Utils.DefaultChaEncryptor()
+	//chaDecipher := Utils.DefaultChaEncryptor()
 	var offset int64 = 0
-	ciphertext := make([]byte, bufferSize)
 	plaintext := make([]byte, bufferSize)
 	c.Stream(func(w io.Writer) bool {
 		for {
@@ -345,7 +320,7 @@ func DsForDownload(c *gin.Context) {
 				break
 			}
 			/*解密*/
-			n, err := file.ReadAt(ciphertext, offset)
+			n, err := file.ReadAt(plaintext, offset)
 			if err != nil && err.Error() != "EOF" { //文件读取出错
 				c.JSON(http.StatusBadRequest, gin.H{
 					"msg": err.Error(),
@@ -355,30 +330,12 @@ func DsForDownload(c *gin.Context) {
 			if n == 0 {
 				break //跳出for循环
 			}
-			/**/
-			//向上取整
-			loopTimes := int((int64(n) + sectionSize - 1) / sectionSize)
-			wg := sync.WaitGroup{}
-			wg.Add(loopTimes)
-			for index := 0; index < loopTimes; index++ {
-				index := int64(index)
-				upto := min((index+1)*sectionSize, int64(n))
-				go func() {
-					chaDecipher.Decrypt(ciphertext[index*sectionSize:upto], plaintext[index*sectionSize:upto])
-					//copy(plaintext[index*sectionSize:upto], ciphertext[index*sectionSize:upto])
-
-					fmt.Println(ciphertext[index*sectionSize : upto])
-					fmt.Println(upto-10, upto)
-					wg.Done()
-				}()
-			}
-			wg.Wait()
-			/**/
 			w.Write(plaintext[:n])
 			offset += int64(n)
 		}
 		return false
 	})
+
 	//c.Writer.Flush()
 	return
 }
@@ -412,3 +369,50 @@ func verifyConnReservation(c *gin.Context) (*PortManage.Port, *PortManage.Connec
 	}
 	return portEntity, connection, nil
 }
+
+/*upload encrypt*/
+//plaintext := make([]byte, buf)
+//var receivedBytes uint64 = 0
+//var cipherBuffer bytes.Buffer
+//plaintFile, _ := os.Open("/Users/hanminghao/Desktop/study/test.txt")
+//for {
+//n, readErr := plaintFile.Read(plaintext)
+//if readErr != nil && readErr != io.EOF && !errors.Is(readErr, http.ErrBodyReadAfterClose) { //读取出错
+//break
+//}
+//if n == 0 {
+//break
+//}
+//loopTimes := int((int64(n) + sectionSize - 1) / sectionSize)
+//wg := sync.WaitGroup{}
+//wg.Add(loopTimes)
+//for index := 0; index < loopTimes; index++ {
+//go func(idx int64) {
+//upto := min((idx+1)*sectionSize, int64(n))
+//Utils.RabbitEncrypt(plaintext[idx*sectionSize:upto], ciphertext[idx*sectionSize:upto])
+//wg.Done()
+//}(int64(index))
+//}
+//wg.Wait()
+//if _, err := file.Write(ciphertext[:n]); err != nil {
+//break
+//}
+//receivedBytes += uint64(n)
+//}
+
+/**/
+//向上取整
+//loopTimes := int((int64(n) + sectionSize - 1) / sectionSize)
+//wg := sync.WaitGroup{}
+//wg.Add(loopTimes)
+//for index := 0; index < loopTimes; index++ {
+//go func(idx int64) {
+//upto := min((idx+1)*sectionSize, int64(n))
+////chaDecipher.Decrypt(ciphertext[idx*sectionSize:upto], plaintext[idx*sectionSize:upto])
+//Utils.RabbitDecrypt(plaintext[idx*sectionSize:upto], ciphertext[idx*sectionSize:upto])
+////copy(plaintext[index*sectionSize:upto], ciphertext[index*sectionSize:upto])
+//wg.Done()
+//}(int64(index))
+//}
+//wg.Wait()
+/**/

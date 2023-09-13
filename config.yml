@@ -23,7 +23,7 @@ jwtKeyPath: "./project/static/jwtKey.yml"
 
 download:
   #50mb
-  bufferSize: 52428800
+  bufferSize: 8000
   sectionNum: 10
 
 FSP:
