@@ -8,7 +8,14 @@ Server:
 Database:
   dbPath: "./project/static/database/nas.db"
 
-DiskRoot: "/Users/hanminghao/Desktop/study/NAS_Disk_Root/"
+FileSystem:
+  DiskRoot: "/Users/hanminghao/Desktop/study/NAS_Disk_Root/"
+  SlashStyle: "/"
+
+FileCatalog:
+  Image: [ ".bmp",".jpg",".png",".tif",".gif",".pcx",".tga",".wmf",".jpeg"]
+  Video: [".mp4",".mov",".avi",".wmv",".mpg","mpeg"]
+  Doc: [".doc",".docx",".pdf","txt",".ppt",".pptx",".xls",".xlsx",".md"]
 
 Aes:
   keyIvYmlPath: "./project/static/aes.yml"

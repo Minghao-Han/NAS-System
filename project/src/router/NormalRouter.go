@@ -27,7 +27,13 @@ func GetNormalRouter() *gin.Engine {
 			userFileApi.POST("/small", controllers.UploadSmallFile)
 			userFileApi.GET("/large", controllers.LargeFileTransitionPrepare)
 		}
-		userApi.GET("/dir/:dir_path/:order/:page_num", controllers.CheckDir)
+		userDirApi := userApi.Group("/dir")
+		{
+			userDirApi.GET("/:dir_path/:catalog/:order/:page_num", controllers.CheckDir)
+			userDirApi.POST("", controllers.CreateDir)
+			userDirApi.DELETE("", controllers.DeleteDir)
+		}
+		userApi.GET("/user/thumbnail/:file_path")
 	}
 	/*adminRouter := NormalRouter.Group("/admin")*/
 	return NormalRouter
