@@ -33,7 +33,7 @@ func GetNormalRouter() *gin.Engine {
 			userDirApi.POST("", controllers.CreateDir)
 			userDirApi.DELETE("", controllers.DeleteDir)
 		}
-		userApi.GET("/user/thumbnail/:file_path")
+		userApi.GET("/thumbnail/:file_path", controllers.GetThumbnail)
 	}
 	/*adminRouter := NormalRouter.Group("/admin")*/
 	return NormalRouter

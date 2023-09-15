@@ -1,11 +1,16 @@
 package Service
 
 import (
+	"bytes"
 	"fmt"
+	"github.com/nfnt/resize"
+	"image/jpeg"
 	uploadDA "nas/project/src/DA/uploadLogDA"
 	"nas/project/src/DA/userDA"
 	"nas/project/src/Utils"
+	"nas/project/src/Utils/ImageUtil"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -62,8 +67,23 @@ func MoveFile(userId int, sourceFilePath string, destinyPath string, cover bool)
 	return nil
 }
 
-func GetThumbnail(userId int, filePath string) ([]byte, error) {
-
+func GetThumbnail(userId int, filePath string) (*bytes.Buffer, error) {
+	filePath = GetFullFilePath(filePath, userId)
+	imgFile, err := os.Open(filePath)
+	if err != nil {
+		return nil, err
+	}
+	img, err := ImageUtil.ImgDecode(imgFile, filepath.Ext(filePath))
+	if err != nil {
+		return nil, err
+	}
+	thumbnail := resize.Resize(180, 0, img, resize.Lanczos3)
+	buf := new(bytes.Buffer)
+	err = jpeg.Encode(buf, thumbnail, nil)
+	if err != nil {
+		return nil, err
+	}
+	return buf, nil
 }
 
 func FileExists(filePath string, userId int) bool {

@@ -156,7 +156,17 @@ func GetThumbnail(c *gin.Context) {
 	filePath := c.Param("file_path")
 	filePath = strings.ReplaceAll(filePath, "_", Service.Slash)
 	userId := GetUserIdFromContext(c)
-	thumbnail, err := Service.GetThumbnail(userId, filePath)
+	thumbnailBuf, err := Service.GetThumbnail(userId, filePath)
+	if err != nil {
+		c.JSON(http.StatusUnprocessableEntity, gin.H{
+			"msg": err.Error(),
+		})
+		return
+	}
+	//c.Header("Content-Type", "application/octet-stream")
+	c.Writer.WriteHeader(http.StatusOK)
+	thumbnailBuf.WriteTo(c.Writer)
+	return
 }
 
 func GetUserIdFromContext(c *gin.Context) int {
