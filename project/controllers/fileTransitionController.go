@@ -75,25 +75,8 @@ func UploadSmallFile(c *gin.Context) {
 	})
 }
 
-func LargeFileTransitionPrepare(c *gin.Context) { /*负责先做些基本的检查，包括margin，文件路径等。如果可以上传，则返回csPort,dsPort*/
-	//path := c.GetHeader("path")
-	//fileSize, err := strconv.ParseUint(c.GetHeader("size"), 10, 64)
-	//filename := c.GetHeader("filename")
-	//value, _ := c.Get("userId")
-	//userId := value.(int)
-	//if path == "" || filename == "" || err != nil {
-	//	c.JSON(http.StatusBadRequest, gin.H{
-	//		"msg": "missing required info",
-	//	})
-	//	return
-	//}
-	//err = Service.LargeFileUploadPrepare(path, fileSize, userId)
-	//if err != nil {
-	//	c.JSON(http.StatusUnprocessableEntity, gin.H{
-	//		"msg": err.Error(),
-	//	})
-	//	return
-	//}
+// LargeFileTransitionPrepare 负责先做些基本的检查，包括margin，文件路径等。如果可以上传，则返回csPort,dsPort
+func LargeFileTransitionPrepare(c *gin.Context) {
 	//初步判断可以上传，返回csPort,dsPort
 	csPort, dsPort, connIndex, got := PortManage.DefaultPortsManager().PrepareConnection(net.ParseIP(c.ClientIP()))
 	if !got { //没能预留连接
@@ -165,17 +148,15 @@ func DsForUpload(c *gin.Context) {
 	path := c.GetHeader("path")
 	filePath := path + "/" + filename
 	fileSize, err := strconv.Atoi(c.GetHeader("fileSize"))
-	value, _ := c.Get("userId")
 	uploadId, err := strconv.Atoi(c.GetHeader("uploadId"))
-	userId := value.(int)
-	user, err := userDA.FindById(userId)
+	userId := GetUserIdFromContext(c)
 	if len(path) == 0 || len(filename) == 0 || len(clientFilePath) == 0 || err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"msg": "missing required info \n" + err.Error(),
 		})
 		return
 	}
-	if uint64(fileSize-offset) > user.Margin {
+	if err = Service.MarginAvailable(userId, uint64(fileSize-offset)); err != nil {
 		c.JSON(http.StatusUnprocessableEntity, gin.H{
 			"msg": "no more space for this file",
 		})
@@ -222,10 +203,10 @@ func DsForUpload(c *gin.Context) {
 		if readErr != nil && readErr != io.EOF && !errors.Is(readErr, http.ErrBodyReadAfterClose) { //读取出错
 			break
 		}
-		if n == 0 {
+		if n == 0 || receivedBytes >= uint64(fileSize) {
 			break
 		}
-		if _, err := fileWriter.Write(plaintext[:n]); err != nil {
+		if _, err := fileWriter.Write(plaintext[:n]); err != nil { //写入错误
 			break
 		}
 		receivedBytes += uint64(n)
@@ -233,9 +214,14 @@ func DsForUpload(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"msg": "uploaded",
 	})
+	//更新上传记录
 	uploadLog, _ := uploadDA.FindById(uploadId)
 	uploadLog.Received_bytes = receivedBytes
 	uploadDA.Update(*uploadLog)
+	//更新用户容量
+	user, err := userDA.FindById(userId)
+	user.Margin -= receivedBytes
+	userDA.Update(*user)
 	return
 }
 

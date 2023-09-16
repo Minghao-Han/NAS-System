@@ -17,7 +17,7 @@ func Update(uploadLog Entities.UploadLog) (rowsAffected int64, err error) {
 
 	//推迟数据库连接的关闭
 	defer db.Close()
-	stmt, err := db.Prepare("UPDATE  upload_log SET uploader=?, path=? ,finished=?,finished=?,received_bytes=?,size=?,client_file_path WHERE id=?")
+	stmt, err := db.Prepare("UPDATE  upload_log SET uploader=?, path=? ,finished=?,finished=?,received_bytes=?,size=?,client_file_path=? WHERE id=?")
 	if err != nil {
 		return
 	}

@@ -5,6 +5,7 @@ import (
 	"nas/project/controllers"
 	"nas/project/src/Utils"
 	"nas/project/src/middleware"
+	"net/http"
 	"strconv"
 )
 
@@ -13,6 +14,10 @@ var NormalRouter = gin.Default()
 func GetNormalRouter() *gin.Engine {
 	serverPort := Utils.DefaultConfigReader().Get("Server:port").(int)
 	NormalRouter.Use(middleware.TlsHandler(serverPort))
+	NormalRouter.GET("/hello", func(c *gin.Context) {
+		c.String(http.StatusOK, "hello from hmh")
+		return
+	})
 	NormalRouter.POST("/login", controllers.Login)
 	//用户路由组
 	userApi := NormalRouter.Group("/user")
