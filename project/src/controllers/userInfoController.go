@@ -7,6 +7,16 @@ import (
 	"net/http"
 )
 
+func Test(c *gin.Context) {
+	userId := 0
+	user, _ := Service.GetUser(userId)
+	c.JSON(http.StatusOK, gin.H{
+		"msg":      "successfully get user info",
+		"userInfo": user,
+	})
+	return
+}
+
 type loginData struct {
 	Username string `json:"username,omitempty"`
 	Password string `json:"password,omitempty"`

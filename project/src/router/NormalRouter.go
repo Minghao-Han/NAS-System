@@ -3,9 +3,8 @@ package router
 import (
 	"github.com/gin-gonic/gin"
 	"nas/project/src/Utils"
-	controllers2 "nas/project/src/controllers"
+	controllers "nas/project/src/controllers"
 	"nas/project/src/middleware"
-	"net/http"
 	"strconv"
 )
 
@@ -14,31 +13,28 @@ var NormalRouter = gin.Default()
 func GetNormalRouter() *gin.Engine {
 	serverPort := Utils.DefaultConfigReader().Get("Server:port").(int)
 	NormalRouter.Use(middleware.TlsHandler(serverPort))
-	NormalRouter.GET("/hello", func(c *gin.Context) {
-		c.String(http.StatusOK, "hello from hmh")
-		return
-	})
-	NormalRouter.POST("/login", controllers2.Login)
+	NormalRouter.GET("/hello", controllers.Test)
+	NormalRouter.POST("/login", controllers.Login)
 	//用户路由组
 	userApi := NormalRouter.Group("/user")
 	{
 		userApi.Use(middleware.TokenInspect())
-		userApi.GET("/info", controllers2.GetUserInfo)
+		userApi.GET("/info", controllers.GetUserInfo)
 		userFileApi := userApi.Group("/file")
 		{
-			userFileApi.DELETE("/", controllers2.DeleteFile)
-			userFileApi.PUT("/", controllers2.MoveFile)
-			userFileApi.GET("/uploading", controllers2.GetUnfinishedUpload)
-			userFileApi.POST("/small", controllers2.UploadSmallFile)
-			userFileApi.GET("/large", controllers2.LargeFileTransitionPrepare)
+			userFileApi.DELETE("/", controllers.DeleteFile)
+			userFileApi.PUT("/", controllers.MoveFile)
+			userFileApi.GET("/uploading", controllers.GetUnfinishedUpload)
+			userFileApi.POST("/small", controllers.UploadSmallFile)
+			userFileApi.GET("/large", controllers.LargeFileTransitionPrepare)
 		}
 		userDirApi := userApi.Group("/dir")
 		{
-			userDirApi.GET("/:dir_path/:catalog/:order/:page_num", controllers2.CheckDir)
-			userDirApi.POST("", controllers2.CreateDir)
-			userDirApi.DELETE("", controllers2.DeleteDir)
+			userDirApi.GET("/:dir_path/:catalog/:order/:page_num", controllers.CheckDir)
+			userDirApi.POST("", controllers.CreateDir)
+			userDirApi.DELETE("", controllers.DeleteDir)
 		}
-		userApi.GET("/thumbnail/:file_path", controllers2.GetThumbnail)
+		userApi.GET("/thumbnail/:file_path", controllers.GetThumbnail)
 	}
 	/*adminRouter := NormalRouter.Group("/admin")*/
 	return NormalRouter
