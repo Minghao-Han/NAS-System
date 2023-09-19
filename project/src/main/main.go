@@ -1,14 +1,13 @@
 package main
 
 import (
-	"github.com/gin-gonic/gin"
 	"nas/project/src/Utils"
 	"nas/project/src/router"
 	"sync"
 )
 
 func main() {
-	gin.SetMode(gin.ReleaseMode)
+	//gin.SetMode(gin.ReleaseMode)
 	normalRouter := router.GetNormalRouter()
 	csPorts := Utils.DefaultConfigReader().Get("FSP:csPorts").([]interface{})
 	dsPorts := Utils.DefaultConfigReader().Get("FSP:dsPorts").([]interface{})

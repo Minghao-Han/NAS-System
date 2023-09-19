@@ -146,7 +146,7 @@ func DsForUpload(c *gin.Context) {
 	filename := c.GetHeader("filename")
 	clientFilePath := c.GetHeader("clientFilePath")
 	path := c.GetHeader("path")
-	filePath := path + "/" + filename
+	uploadPath := path + filename
 	fileSize, err := strconv.Atoi(c.GetHeader("fileSize"))
 	uploadId, err := strconv.Atoi(c.GetHeader("uploadId"))
 	userId := GetUserIdFromContext(c)
@@ -162,12 +162,12 @@ func DsForUpload(c *gin.Context) {
 		})
 		return
 	}
-	fullFilePath := Service.GetFullFilePath(filePath, userId)
+	fullFilePath := Service.GetFullFilePath(uploadPath, userId)
 	/*如果是续传就检查数据库中的项正不正确，如果是新上传就要检查是否有同名文件*/
 	var file *os.File
 	if uploadId != -1 {
 		uploadLog, _ := uploadDA.FindById(uploadId)
-		if uploadLog.Finished == true || uploadLog.Received_bytes != uint64(offset) || uploadLog.Path != filePath {
+		if uploadLog.Finished == true || uploadLog.Received_bytes != uint64(offset) || uploadLog.Path != uploadPath {
 			c.JSON(http.StatusUnprocessableEntity, gin.H{
 				"msg": "resume upload failed",
 			})
@@ -200,6 +200,9 @@ func DsForUpload(c *gin.Context) {
 	/*从请求头读取*/
 	for {
 		n, readErr := c.Request.Body.Read(plaintext)
+		if receivedBytes >= 9752518000 {
+			fmt.Println("here")
+		}
 		if readErr != nil && readErr != io.EOF && !errors.Is(readErr, http.ErrBodyReadAfterClose) { //读取出错
 			break
 		}
@@ -211,6 +214,7 @@ func DsForUpload(c *gin.Context) {
 		}
 		receivedBytes += uint64(n)
 	}
+	fileWriter.Flush()
 	c.JSON(http.StatusOK, gin.H{
 		"msg": "uploaded",
 	})
