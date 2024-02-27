@@ -73,9 +73,26 @@ func UploadSmallFile(c *gin.Context) {
 
 // LargeFileTransitionPrepare 负责先做些基本的检查，包括margin，文件路径等。如果可以上传，则返回csPort,dsPort
 func LargeFileTransitionPrepare(c *gin.Context) {
+	path := c.GetHeader("path")
+	fileSize, err := strconv.ParseUint(c.GetHeader("size"), 10, 64)
+	filename := c.GetHeader("filename")
+	value, _ := c.Get("userId")
+	userId := value.(int)
+	if path == "" || filename == "" || err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"msg": "missing required info",
+		})
+		return
+	}
+	prepareErr := Service.LargeFileUploadPrepare(path, fileSize, userId)
+	if prepareErr != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"msg": prepareErr.Error(),
+		})
+	}
 	//初步判断可以上传，返回csPort,dsPort
 	csPort, dsPort, connIndex, got := PortManage.DefaultPortsManager().PrepareConnection(net.ParseIP(c.ClientIP()))
-	if !got { //没能预留连接
+	if !got { //没能预留连接。 If haven't reserved connection
 		c.JSON(http.StatusUnprocessableEntity, gin.H{
 			"msg": "failed to get connection reservation",
 		})
@@ -138,6 +155,7 @@ func DsForUpload(c *gin.Context) {
 	defer port.DisConnectByIP(net.ParseIP(c.ClientIP()))
 	connection.GetDS2CS() <- -1
 	/*获取参数*/
+	/*get parameters*/
 	offset, err := strconv.ParseUint(c.GetHeader("offset"), 10, 64)
 	filename := c.GetHeader("filename")
 	clientFilePath := c.GetHeader("clientFilePath")

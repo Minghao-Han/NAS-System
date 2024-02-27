@@ -8,11 +8,14 @@ import (
 )
 
 func Test(c *gin.Context) {
-	userId := 0
-	user, _ := Service.GetUser(userId)
+	//userId := 0
+	//user, _ := Service.GetUser(userId)
+	//c.JSON(http.StatusOK, gin.H{
+	//	"msg":      "successfully get user info",
+	//	"userInfo": user,
+	//})
 	c.JSON(http.StatusOK, gin.H{
-		"msg":      "successfully get user info",
-		"userInfo": user,
+		"msg": "The back-end is running now!",
 	})
 	return
 }

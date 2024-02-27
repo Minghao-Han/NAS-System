@@ -1,38 +1,57 @@
+# For https
 TLS:
   keyPath: "./project/static/certificates/h-hnetdisk-com-iis-0901115710.key"
   pemPath: "./project/static/certificates/h-hnetdisk-com-iis-0901115710.pem"
 
+# Main server port
 Server:
   port: 443
 
+# Database settings
 Database:
   dbPath: "./project/static/database/nas.db"
 
+# You need to set the root path of this nas since this nas system is depending on existing file system such as the APFS on Mac.
+# SlashStyle: Specify the slash style of your file system. Some file systems may use '\' instead of '/'.
 FileSystem:
   DiskRoot: "/Users/hanminghao/Desktop/study/NAS_Disk_Root/"
   SlashStyle: "/"
 
+# Specify the file formats you want this system to recognize and then decorate its cover when users checking their folders.
+# Notice that formats that haven't mentioned can also be accurately store and download, just without nice-look cover.
 FileCatalog:
   Image: [ ".bmp",".jpg",".png",".tif",".gif",".pcx",".tga",".wmf",".jpeg"]
   Video: [".mp4",".mov",".avi",".wmv",".mpg","mpeg"]
   Doc: [".doc",".docx",".pdf","txt",".ppt",".pptx",".xls",".xlsx",".md"]
 
+# Settings of aes used for encrypt.
 Aes:
   keyIvYmlPath: "./project/static/aes.yml"
 
+# Set how many files can be seen in a page
 CheckDir:
   pageSize: 20
 
+# Settings of aes used for encrypt.
 ChaCha20:
   keyNonceYmlPath: "./project/static/chacha20.yml"
 
+# Path to the key of JWT (json web token)
 jwtKeyPath: "./project/static/jwtKey.yml"
 
+# Download settings.
+# bufferSize: the size of the buffer which is used to receive file one piece at a time. You can specify it regarding the capacity of your memory.
+# sectionNum:
 download:
   #50mb
   bufferSize: 8000
   sectionNum: 10
 
+# Ports you want to expose for file transfer.
+# FSP stands for File Stream Port
+# cs (Control) ; ds (Data Stream)
+# connPerPort specifies how many https connection can be attached to a port.
+# prepareConnectionTimeout
 FSP:
   csPorts: [14443,14445,14447]
   dsPorts: [14444,14446,14448]
