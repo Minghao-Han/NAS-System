@@ -1,15 +1,29 @@
 package Service
 
 import (
+	"bufio"
+	"errors"
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"io"
 	uploadDA "nas/project/src/DA/uploadLogDA"
+	"nas/project/src/DA/userDA"
 	"nas/project/src/Entities"
 	"nas/project/src/Utils"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+)
+
+var (
+	STOP        int64 = -1
+	CANCEL      int64 = -2
+	NO_OP       int64 = -3
+	bufferSize        = int64(Utils.DefaultConfigReader().Get("download:bufferSize").(int))
+	sectionNum        = Utils.DefaultConfigReader().Get("download:sectionNum").(int)
+	sectionSize       = bufferSize / int64(sectionNum)
 )
 
 func UploadSmallFile(c *gin.Context, path string, fileSize uint64, fileName string, userId int) error {
@@ -101,4 +115,73 @@ func DuplicateFileName(filePath string) string {
 	}
 	filePath = newFilePath
 	return filePath
+}
+
+func Upload(c *gin.Context, offset uint64, uploadPath string, fileSize uint64, uploadId int, userId int, clientFilePath string) error {
+	err := MarginAvailable(userId, uint64(fileSize-offset))
+	if err != nil {
+		return fmt.Errorf("no more space for this file")
+	}
+	fullFilePath := GetFullFilePath(uploadPath, userId)
+	/*如果是续传就检查数据库中的项正不正确，如果是新上传就要检查是否有同名文件*/
+	var file *os.File
+	if uploadId != -1 {
+		uploadLog, _ := uploadDA.FindById(uploadId)
+		if uploadLog.Finished == true || uploadLog.Received_bytes != uint64(offset) || uploadLog.Path != uploadPath {
+			c.JSON(http.StatusUnprocessableEntity, gin.H{
+				"msg": "resume upload failed",
+			})
+		}
+		file, err = os.Open(fullFilePath)
+		defer file.Close()
+	} else {
+		fullFilePath = DuplicateFileName(fullFilePath)
+		uploadId, _ = uploadDA.Insert(Entities.UploadLog{
+			Id:             0,
+			Uploader:       userId,
+			Path:           GetUserRelativePath(fullFilePath, userId),
+			Finished:       false,
+			Received_bytes: 0,
+			Size:           uint64(fileSize),
+			ClientFilePath: clientFilePath,
+		})
+		file, err = os.Create(fullFilePath)
+		defer file.Close()
+	}
+	if err != nil {
+		return err
+	}
+	var receivedBytes uint64 = 0
+	fileWriter := bufio.NewWriter(file)
+	plaintext := make([]byte, bufferSize)
+	/*从请求头读取*/
+	for {
+		n, readErr := c.Request.Body.Read(plaintext)
+		if receivedBytes >= 9752518000 {
+			fmt.Println("here")
+		}
+		if readErr != nil && readErr != io.EOF && !errors.Is(readErr, http.ErrBodyReadAfterClose) { //读取出错
+			break
+		}
+		if n == 0 || receivedBytes >= uint64(fileSize) {
+			break
+		}
+		if _, err := fileWriter.Write(plaintext[:n]); err != nil { //写入错误
+			break
+		}
+		receivedBytes += uint64(n)
+	}
+	fileWriter.Flush()
+	c.JSON(http.StatusOK, gin.H{
+		"msg": "uploaded",
+	})
+	//更新上传记录
+	uploadLog, _ := uploadDA.FindById(uploadId)
+	uploadLog.Received_bytes = receivedBytes
+	uploadDA.Update(*uploadLog)
+	//更新用户容量
+	user, err := userDA.FindById(userId)
+	user.Margin -= receivedBytes
+	userDA.Update(*user)
+	return nil
 }

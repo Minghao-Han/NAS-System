@@ -1,14 +1,10 @@
 package controllers
 
 import (
-	"bufio"
-	"errors"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"io"
 	uploadDA "nas/project/src/DA/uploadLogDA"
-	"nas/project/src/DA/userDA"
-	"nas/project/src/Entities"
 	"nas/project/src/Service"
 	"nas/project/src/Service/PortManage"
 	"nas/project/src/Utils"
@@ -142,12 +138,12 @@ func DsForUpload(c *gin.Context) {
 	defer port.DisConnectByIP(net.ParseIP(c.ClientIP()))
 	connection.GetDS2CS() <- -1
 	/*获取参数*/
-	offset, err := strconv.Atoi(c.GetHeader("offset"))
+	offset, err := strconv.ParseUint(c.GetHeader("offset"), 10, 64)
 	filename := c.GetHeader("filename")
 	clientFilePath := c.GetHeader("clientFilePath")
 	path := c.GetHeader("path")
 	uploadPath := path + filename
-	fileSize, err := strconv.Atoi(c.GetHeader("fileSize"))
+	fileSize, err := strconv.ParseUint(c.GetHeader("fileSize"), 10, 64)
 	uploadId, err := strconv.Atoi(c.GetHeader("uploadId"))
 	userId := GetUserIdFromContext(c)
 	if len(path) == 0 || len(filename) == 0 || len(clientFilePath) == 0 || err != nil {
@@ -156,76 +152,16 @@ func DsForUpload(c *gin.Context) {
 		})
 		return
 	}
-	if err = Service.MarginAvailable(userId, uint64(fileSize-offset)); err != nil {
-		c.JSON(http.StatusUnprocessableEntity, gin.H{
-			"msg": "no more space for this file",
-		})
-		return
-	}
-	fullFilePath := Service.GetFullFilePath(uploadPath, userId)
-	/*如果是续传就检查数据库中的项正不正确，如果是新上传就要检查是否有同名文件*/
-	var file *os.File
-	if uploadId != -1 {
-		uploadLog, _ := uploadDA.FindById(uploadId)
-		if uploadLog.Finished == true || uploadLog.Received_bytes != uint64(offset) || uploadLog.Path != uploadPath {
-			c.JSON(http.StatusUnprocessableEntity, gin.H{
-				"msg": "resume upload failed",
-			})
-		}
-		file, err = os.Open(fullFilePath)
-		defer file.Close()
-	} else {
-		fullFilePath = Service.DuplicateFileName(fullFilePath)
-		uploadId, _ = uploadDA.Insert(Entities.UploadLog{
-			Id:             0,
-			Uploader:       userId,
-			Path:           Service.GetUserRelativePath(fullFilePath, userId),
-			Finished:       false,
-			Received_bytes: 0,
-			Size:           uint64(fileSize),
-			ClientFilePath: clientFilePath,
-		})
-		file, err = os.Create(fullFilePath)
-		defer file.Close()
-	}
+	err = Service.Upload(c, offset, uploadPath, fileSize, uploadId, userId, clientFilePath)
 	if err != nil {
 		c.JSON(http.StatusUnprocessableEntity, gin.H{
 			"msg": err.Error(),
 		})
-		return
+	} else {
+		c.JSON(http.StatusOK, gin.H{
+			"msg": "uploaded",
+		})
 	}
-	var receivedBytes uint64 = 0
-	fileWriter := bufio.NewWriter(file)
-	plaintext := make([]byte, bufferSize)
-	/*从请求头读取*/
-	for {
-		n, readErr := c.Request.Body.Read(plaintext)
-		if receivedBytes >= 9752518000 {
-			fmt.Println("here")
-		}
-		if readErr != nil && readErr != io.EOF && !errors.Is(readErr, http.ErrBodyReadAfterClose) { //读取出错
-			break
-		}
-		if n == 0 || receivedBytes >= uint64(fileSize) {
-			break
-		}
-		if _, err := fileWriter.Write(plaintext[:n]); err != nil { //写入错误
-			break
-		}
-		receivedBytes += uint64(n)
-	}
-	fileWriter.Flush()
-	c.JSON(http.StatusOK, gin.H{
-		"msg": "uploaded",
-	})
-	//更新上传记录
-	uploadLog, _ := uploadDA.FindById(uploadId)
-	uploadLog.Received_bytes = receivedBytes
-	uploadDA.Update(*uploadLog)
-	//更新用户容量
-	user, err := userDA.FindById(userId)
-	user.Margin -= receivedBytes
-	userDA.Update(*user)
 	return
 }
 
