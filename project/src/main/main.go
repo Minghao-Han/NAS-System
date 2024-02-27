@@ -1,20 +1,38 @@
 package main
 
 import (
-	"fmt"
-	"nas/project/src/PortManage"
-	"net"
-	"time"
+	"github.com/gin-gonic/gin"
+	"nas/project/src/Utils"
+	"nas/project/src/router"
+	"sync"
 )
 
 func main() {
-	portManage := PortManage.NewPortsManager()
-	for i := 0; i < 2; i++ {
+	gin.SetMode(gin.ReleaseMode)
+	normalRouter := router.GetNormalRouter()
+	csPorts := Utils.DefaultConfigReader().Get("FSP:csPorts").([]interface{})
+	dsPorts := Utils.DefaultConfigReader().Get("FSP:dsPorts").([]interface{})
+	wg := sync.WaitGroup{}
+	wg.Add(len(csPorts) + len(dsPorts) + 1)
+	for _, csPort := range csPorts {
+		csPort := csPort
+		csRouter := router.GetControlStreamRouter()
 		go func() {
-			csPort, dsPort, connIndex, ok := portManage.PrepareConnection(net.ParseIP("192.168.1.1"))
-			fmt.Printf("csPort is %d,dsPort is %d,connIndex is %d,ok is %t \n", csPort, dsPort, connIndex, ok)
+			router.RunOnConfig(csPort.(int), csRouter)
+			wg.Done()
 		}()
 	}
-	time.Sleep(5 * time.Second)
-	return
+	for _, dsPort := range dsPorts {
+		dsPort := dsPort
+		dsRouter := router.GetDataStreamRouter()
+		go func() {
+			router.RunOnConfig(dsPort.(int), dsRouter)
+			wg.Done()
+		}()
+	}
+	go func() {
+		router.RunTLSOnConfig(normalRouter)
+		wg.Done()
+	}()
+	wg.Wait()
 }

@@ -1,0 +1,40 @@
+TLS:
+  keyPath: "./project/static/certificates/h-hnetdisk-com-iis-0901115710.key"
+  pemPath: "./project/static/certificates/h-hnetdisk-com-iis-0901115710.pem"
+
+Server:
+  port: 443
+
+Database:
+  dbPath: "./project/static/database/nas.db"
+
+FileSystem:
+  DiskRoot: "/Users/hanminghao/Desktop/study/NAS_Disk_Root/"
+  SlashStyle: "/"
+
+FileCatalog:
+  Image: [ ".bmp",".jpg",".png",".tif",".gif",".pcx",".tga",".wmf",".jpeg"]
+  Video: [".mp4",".mov",".avi",".wmv",".mpg","mpeg"]
+  Doc: [".doc",".docx",".pdf","txt",".ppt",".pptx",".xls",".xlsx",".md"]
+
+Aes:
+  keyIvYmlPath: "./project/static/aes.yml"
+
+CheckDir:
+  pageSize: 20
+
+ChaCha20:
+  keyNonceYmlPath: "./project/static/chacha20.yml"
+
+jwtKeyPath: "./project/static/jwtKey.yml"
+
+download:
+  #50mb
+  bufferSize: 8000
+  sectionNum: 10
+
+FSP:
+  csPorts: [14443,14445,14447]
+  dsPorts: [14444,14446,14448]
+  connPerPort: 10
+  prepareConnectionTimeout: 60000
