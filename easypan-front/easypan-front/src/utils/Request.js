@@ -1,6 +1,6 @@
 import axios from 'axios'
 
-import { ElLoading } from 'element-plus'
+import {ElLoading} from 'element-plus'
 import router from '@/router'
 
 import Message from '../utils/Message'
@@ -66,7 +66,7 @@ instance.interceptors.response.use(
         if (error.config.showLoading && loading) {
             loading.close();
         }
-        return Promise.reject({ showError: true, msg: "网络异常" })
+        //return Promise.reject({ showError: true, msg: "网络异常" })
     }
 );
 
@@ -85,24 +85,24 @@ const request = (config) => {
         'X-Requested-With': 'XMLHttpRequest',
     }
 
-    return instance.post(url, formData, {
-        onUploadProgress: (event) => {
-            if (config.uploadProgressCallback) {
-                config.uploadProgressCallback(event);
-            }
-        },
-        responseType: responseType,
-        headers: headers,
-        showLoading: showLoading,
-        errorCallback: config.errorCallback,
-        showError: config.showError
-    }).catch(error => {
-        console.log(error);
-        if (error.showError) {
-            Message.error(error.msg);
-        }
-        return null;
-    });
+    // return instance.post(url, formData, {
+    //     onUploadProgress: (event) => {
+    //         if (config.uploadProgressCallback) {
+    //             config.uploadProgressCallback(event);
+    //         }
+    //     },
+    //     responseType: responseType,
+    //     headers: headers,
+    //     showLoading: showLoading,
+    //     errorCallback: config.errorCallback,
+    //     showError: config.showError
+    // }).catch(error => {
+    //     console.log(error);
+    //     if (error.showError) {
+    //         Message.error(error.msg);
+    //     }
+    //     return null;
+    // });
 };
 
 export default request;

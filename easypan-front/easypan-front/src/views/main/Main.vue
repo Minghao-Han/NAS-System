@@ -17,6 +17,11 @@
 
           </el-upload>
         </div>
+        <el-button
+            type="primary"
+            @click="downloadFile"
+        ><span class="iconfont icon-download">下载</span>
+        </el-button>
         <!--        <el-button type="primary" @click="downloadFile">-->
         <!--          <span class="iconfont icon-download"></span>-->
         <!--          下载-->
@@ -117,12 +122,12 @@
                 <span class="iconfont icon-share1" @click="share(row)"
                 >分享</span
                 >
-                <span
-                    class="iconfont icon-download"
-                    @click="download(row)"
-                    v-if="row.folderType == 0"
-                >下载</span
-                >
+                <!--                <span-->
+                <!--                    class="iconfont icon-download"-->
+                <!--                    @click="download(row)"-->
+                <!--                    v-if="row.folderType == 0"-->
+                <!--                >下载</span-->
+                <!--                >-->
                 <span class="iconfont icon-del" @click="delFile(row)"
                 >删除</span
                 >
@@ -187,11 +192,18 @@ import FileShare from "./ShareFile.vue";
 import {ref, reactive, getCurrentInstance, nextTick, computed} from "vue";
 import {useRouter, useRoute} from "vue-router";
 
+
 const {proxy} = getCurrentInstance();
 const router = useRouter();
 const route = useRoute();
 const emit = defineEmits(["addFile"]);
+//import download from "../../Func/download";
+import exportData from "../../Func/download";
 
+const downloadFile = async () => {
+  console.log("执行")
+  await exportData()
+}
 
 const addFile = async (fileData) => {
   emit("addFile", {file: fileData.file, filePid: currentFolder.value.fileId});
@@ -217,7 +229,7 @@ const api = {
   delFile: "/file/delFile",
   changeFileFolder: "/file/changeFileFolder",
   createDownloadUrl: "/file/createDownloadUrl",
-  download: "/api/file/download",
+  //download: "/api/file/download",
 };
 
 const fileAccept = computed(() => {
@@ -513,16 +525,16 @@ const navChange = (data) => {
   loadDataList();
 };
 
-//下载文件
-const download = async (row) => {
-  let result = await proxy.Request({
-    url: api.createDownloadUrl + "/" + row.fileId,
-  });
-  if (!result) {
-    return;
-  }
-  window.location.href = api.download + "/" + result.data;
-};
+// //下载文件
+// const download = async (row) => {
+//   let result = await proxy.Request({
+//     url: api.createDownloadUrl + "/" + row.fileId,
+//   });
+//   if (!result) {
+//     return;
+//   }
+//   window.location.href = api.download + "/" + result.data;
+// };
 
 //分享
 const shareRef = ref();
