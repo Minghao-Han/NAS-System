@@ -1,17 +1,22 @@
 package Service
 
 import (
+	"bytes"
 	"fmt"
+	"github.com/nfnt/resize"
+	"image/jpeg"
 	uploadDA "nas/project/src/DA/uploadLogDA"
 	"nas/project/src/DA/userDA"
 	"nas/project/src/Utils"
+	"nas/project/src/Utils/ImageUtil"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
 )
 
-var diskRoot = Utils.DefaultConfigReader().Get("DiskRoot").(string)
+var diskRoot = Utils.DefaultConfigReader().Get("FileSystem:DiskRoot").(string)
+var Slash = Utils.DefaultConfigReader().Get("FileSystem:SlashStyle").(string)
 
 func DeleteFile(userId int, filePath string) error {
 	fileFullPath := GetFullFilePath(filePath, userId)
@@ -48,7 +53,7 @@ func MoveFile(userId int, sourceFilePath string, destinyPath string, cover bool)
 	if _, dirErr := os.Stat(destinyFullPath); os.IsNotExist(dirErr) { //目的文件夹不存在
 		return dirErr
 	}
-	newFilePath := destinyFullPath + "/" + fileInfo.Name()
+	newFilePath := destinyFullPath + Slash + fileInfo.Name()
 	_, err := os.Stat(newFilePath)
 	if !os.IsNotExist(err) { //有同名文件
 		if !cover { //不覆盖
@@ -62,65 +67,23 @@ func MoveFile(userId int, sourceFilePath string, destinyPath string, cover bool)
 	return nil
 }
 
-type FileInfo struct {
-	Name    string    `json:"name,omitempty"`
-	Size    int64     `json:"size"`
-	ModTime time.Time `json:"modTime"`
-}
-
-var pageSize = Utils.DefaultConfigReader().Get("CheckDir:pageSize").(int)
-
-func CheckDir(userId int, dirPath string, order string, pageNum int) ([]FileInfo, error) {
-	dirFullPath := diskRoot + strconv.Itoa(userId) + dirPath
-	dir, err := os.Open(dirFullPath)
+func GetThumbnail(userId int, filePath string) (*bytes.Buffer, error) {
+	filePath = GetFullFilePath(filePath, userId)
+	imgFile, err := os.Open(filePath)
 	if err != nil {
 		return nil, err
 	}
-	defer dir.Close()
-	fileInfos, err := dir.Readdir(-1)
+	img, err := ImageUtil.ImgDecode(imgFile, filepath.Ext(filePath))
 	if err != nil {
 		return nil, err
 	}
-	switch order {
-	case "earliest":
-		fileInfos = FileInfosByModifiedTimeDown(fileInfos)
-		break
-	case "latest":
-		fileInfos = FileInfosByModifiedTimeUp(fileInfos)
-		break
-	case "biggest":
-		fileInfos = FileInfosBySizeUp(fileInfos)
-		break
-	case "smallest":
-		fileInfos = FileInfosBySizeDown(fileInfos)
-		break
-	case "dic_down":
-		fileInfos = FileInfosByDicDown(fileInfos)
-		break
-	case "dic_up":
-		fileInfos = FileInfosByDicUp(fileInfos)
-		break
-	default:
-		return nil, fmt.Errorf("order invalid")
+	thumbnail := resize.Resize(180, 0, img, resize.Lanczos3)
+	buf := new(bytes.Buffer)
+	err = jpeg.Encode(buf, thumbnail, nil)
+	if err != nil {
+		return nil, err
 	}
-	from := pageSize * pageNum
-	if from > len(fileInfos)-1 { //没有更多
-		return nil, fmt.Errorf("no more files")
-	}
-	to := min(pageSize*(pageNum+1), len(fileInfos)) //slice左闭右开，所以是pageSize*(pageNum+1)而不是pageSize*(pageNum+1)-1
-	fileInfos = fileInfos[from:to]
-	return toFileInfo(fileInfos), nil
-}
-func toFileInfo(osFileInfos []os.FileInfo) []FileInfo {
-	toBeReturn := make([]FileInfo, 0, len(osFileInfos))
-	for _, osFileInfo := range osFileInfos {
-		toBeReturn = append(toBeReturn, FileInfo{
-			Name:    osFileInfo.Name(),
-			Size:    osFileInfo.Size(),
-			ModTime: osFileInfo.ModTime(),
-		})
-	}
-	return toBeReturn
+	return buf, nil
 }
 
 func FileExists(filePath string, userId int) bool {

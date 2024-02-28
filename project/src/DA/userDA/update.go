@@ -17,12 +17,12 @@ func Update(user Entities.User) (rowsAffected int64, err error) {
 
 	//推迟数据库连接的关闭
 	defer db.Close()
-	stmt, err := db.Prepare("UPDATE  user SET user_name=?, password=? ,total_capacity=?,margin=? WHERE user_id=?")
+	stmt, err := db.Prepare("UPDATE  user SET user_name=? ,total_capacity=?,margin=? WHERE user_id=?")
 	if err != nil {
 		return
 	}
 	//执行修改操作
-	rs, err := stmt.Exec(user.UserId, user.UserName, user.Password, user.Capacity, user.Margin)
+	rs, err := stmt.Exec(user.UserName, user.Capacity, user.Margin, user.UserId)
 	if err != nil {
 		return
 	}

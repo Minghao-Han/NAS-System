@@ -5,6 +5,7 @@ import (
 	"fmt"
 	_ "github.com/mattn/go-sqlite3"
 	"nas/project/src/Entities"
+	"nas/project/src/Utils"
 )
 
 func Query() (uploadlogs []Entities.UploadLog, err error) {
@@ -59,7 +60,7 @@ func FindById(id int) (*Entities.UploadLog, error) {
 	if rows.Next() {
 		var uploadLog Entities.UploadLog
 		//只取查询的第一个
-		err := rows.Scan(&uploadLog.Id, &uploadLog.Uploader, &uploadLog.Path, &uploadLog.Finished, &uploadLog.Received_bytes, &uploadLog.Size)
+		err := rows.Scan(&uploadLog.Id, &uploadLog.Uploader, &uploadLog.Path, &uploadLog.Finished, &uploadLog.Received_bytes, &uploadLog.Size, &uploadLog.ClientFilePath)
 		if err != nil {
 			return nil, err
 		}
@@ -69,6 +70,9 @@ func FindById(id int) (*Entities.UploadLog, error) {
 }
 
 func FindByUploader(uploader string) (uploadlogs []Entities.UploadLog, err error) {
+	if safe := Utils.SQLInjectionDetector(uploader); !safe {
+		return nil, fmt.Errorf("detected sql injection attack")
+	}
 	db, err := sql.Open("sqlite3", dbPath)
 	if err != nil {
 		fmt.Println(err)
@@ -100,6 +104,9 @@ func FindByUploader(uploader string) (uploadlogs []Entities.UploadLog, err error
 }
 
 func FindUnfinishedByUploader(uploader string) (uploadlogs []Entities.UploadLog, err error) {
+	if safe := Utils.SQLInjectionDetector(uploader); !safe {
+		return nil, fmt.Errorf("detected sql injection attack")
+	}
 	db, err := sql.Open("sqlite3", dbPath)
 	if err != nil {
 		fmt.Println(err)

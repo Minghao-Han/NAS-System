@@ -79,9 +79,10 @@ func (pm *PortsManager) PrepareConnection(sourceIP net.IP) (int, int, int, bool)
 			connIndexChan := make(chan int, 1)
 			var wg = sync.WaitGroup{}
 			wg.Add(portNum)
+			ctxLock := &sync.Mutex{}
 			for index, _ := range pm.ports {
 				port := &pm.ports[index]
-				go port.PrepareNewConnection(index, sourceIP, &ctx, &wg, found, connIndexChan)
+				go port.PrepareNewConnection(sourceIP, &ctx, ctxLock, &wg, found, connIndexChan, cancel)
 			}
 			allFinished := make(chan bool, 1)
 			//allFinished接收超时消息
@@ -92,7 +93,6 @@ func (pm *PortsManager) PrepareConnection(sourceIP net.IP) (int, int, int, bool)
 			select {
 			case availablePort := <-found: //找到合适的端口
 				close(found)
-				cancel()
 				connIndex := <-connIndexChan
 				wg.Wait()
 				return availablePort.GetCsPort(), availablePort.GetDsPort(), connIndex, true

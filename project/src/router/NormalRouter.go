@@ -3,8 +3,8 @@ package router
 import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	"nas/project/controllers"
 	"nas/project/src/Utils"
+	controllers "nas/project/src/controllers"
 	"nas/project/src/middleware"
 	"strconv"
 	"time"
@@ -27,6 +27,7 @@ func GetNormalRouter() *gin.Engine {
 	serverPort := Utils.DefaultConfigReader().Get("Server:port").(int)
 	NormalRouter.Use(AllowAll())
 	NormalRouter.Use(middleware.TlsHandler(serverPort))
+	NormalRouter.GET("/hello", controllers.Test)
 	NormalRouter.POST("/login", controllers.Login)
 	//用户路由组
 	userApi := NormalRouter.Group("/user")
@@ -43,7 +44,13 @@ func GetNormalRouter() *gin.Engine {
 			userFileApi.POST("/small", controllers.UploadSmallFile)
 			userFileApi.GET("/large", controllers.LargeFileTransitionPrepare)
 		}
-		userApi.GET("/dir/:dir_path/:order/:page_num", controllers.CheckDir)
+		userDirApi := userApi.Group("/dir")
+		{
+			userDirApi.GET("/:dir_path/:catalog/:order/:page_num", controllers.CheckDir)
+			userDirApi.POST("", controllers.CreateDir)
+			userDirApi.DELETE("", controllers.DeleteDir)
+		}
+		userApi.GET("/thumbnail/:file_path", controllers.GetThumbnail)
 	}
 	/*adminRouter := NormalRouter.Group("/admin")*/
 	return NormalRouter

@@ -2,8 +2,8 @@ package router
 
 import (
 	"github.com/gin-gonic/gin"
-	"nas/project/controllers"
 	"nas/project/src/Utils"
+	"nas/project/src/controllers"
 	"nas/project/src/middleware"
 	"strconv"
 )

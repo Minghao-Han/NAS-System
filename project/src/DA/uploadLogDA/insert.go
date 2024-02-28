@@ -19,13 +19,13 @@ func Insert(uploadLog Entities.UploadLog) (Id int, err error) {
 	//推迟数据库连接的关闭
 	defer db.Close()
 
-	stmt, err := db.Prepare("INSERT INTO upload_log(uploader, path, finished, received_bytes, size) VALUES (?, ?, ?, ?, ?)")
+	stmt, err := db.Prepare("INSERT INTO upload_log(uploader, path, finished, received_bytes, size,client_file_path) VALUES (?, ?, ?, ?,?, ?)")
 	if err != nil {
 		fmt.Printf("insert data failed: %v\n", err)
 	}
 
 	//执行插入操作
-	rs, err := stmt.Exec(uploadLog.Uploader, uploadLog.Path, uploadLog.Finished, uploadLog.Received_bytes, uploadLog.Size)
+	rs, err := stmt.Exec(uploadLog.Uploader, uploadLog.Path, uploadLog.Finished, uploadLog.Received_bytes, uploadLog.Size, uploadLog.ClientFilePath)
 	if err != nil {
 		return
 	}

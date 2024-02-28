@@ -48,7 +48,6 @@ func (cha *ChaChaEncryptor) Decrypt(ciphertext []byte, plaintext []byte) ([]byte
 		return nil, err
 	}
 	c.XORKeyStream(plaintext, ciphertext)
-
 	return plaintext, nil
 }
 func ChaEncrypt(key, nonce, plaintext []byte) ([]byte, error) {
@@ -63,7 +62,7 @@ func ChaEncrypt(key, nonce, plaintext []byte) ([]byte, error) {
 	return ciphertext, nil
 }
 
-// Decrypt 使用 ChaCha20 解密密文
+// ChaDecrypt 使用 ChaCha20 解密密文
 func ChaDecrypt(key, nonce, ciphertext []byte) ([]byte, error) {
 	c, err := chacha20.NewUnauthenticatedCipher(key, nonce)
 	if err != nil {
