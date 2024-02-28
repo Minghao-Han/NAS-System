@@ -9,16 +9,18 @@ const router = createRouter({
       name: '登录',
       component: () => import("@/views/Login.vue")
     },
+
     {
       path: "/",
       component: () => import("@/views/Framework.vue"),
       children: [
         {
           path: '/',
-          redirect: "/main/all"
+          redirect: "/login",
+          //component: () => import("@/views/main/Main.vue")
         },
         {
-          path: '/main/:category',
+          path: 'main/:category',
           name: '首页',
           meta: {
             needLogin: true,
@@ -82,19 +84,21 @@ const router = createRouter({
       path: '/share/:shareId',
       name: '分享',
       component: () => import("@/views/webshare/Share.vue")
-    }, {
-      path: '/qqlogincalback',
-      name: "qq登录回调",
-      component: () => import('@/views/QqLoginCallback.vue'),
-    }
+    },
+    // {
+    //   path: '/qqlogincalback',
+    //   name: "qq登录回调",
+    //   component: () => import('@/views/QqLoginCallback.vue'),
+    // }
   ]
 })
 
 router.beforeEach((to, from, next) => {
   if(to.path==='/login') return next()
-  const tokenstr = localStorage.getItem("token");
-  if (!tokenstr) return next('/login')
+  // const tokenstr = localStorage.getItem("token");
+  // if (!tokenstr) return next('/login')
   next()
+  //next('/login')
 })
 
 export default router

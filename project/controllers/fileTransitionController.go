@@ -241,7 +241,7 @@ func DsForUpload(c *gin.Context) {
 		}
 		receivedBytes += uint64(n)
 	}
-	uploadLog, _ := uploadDA.FindById(uploadId)
+	//uploadLog, _ := uploadDA.FindById(uploadId)
 }
 
 func CsForDownload(c *gin.Context) {
@@ -348,8 +348,8 @@ func DsForDownload(c *gin.Context) {
 		}
 		wg.Wait()
 		c.Stream(func(w io.Writer) bool {
+			w.Write(ciphertext[:n])
 			//w.Write(plaintext[:n])
-			w.Write(plaintext[:n])
 			return false
 		})
 		offset += int64(n)

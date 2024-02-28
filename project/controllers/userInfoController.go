@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"nas/project/src/Service"
 	"nas/project/src/Utils"
@@ -25,6 +26,7 @@ func Login(c *gin.Context) {
 		})
 	} else {
 		token, err := Utils.DefaultJWT().GenerateToken(userId)
+		fmt.Println(token)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"msg": "error generating token",
@@ -40,6 +42,7 @@ func Login(c *gin.Context) {
 
 func GetUserInfo(c *gin.Context) {
 	userId, _ := c.Get("userId")
+	fmt.Println(c)
 	user, err := Service.GetUser(userId.(int))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
