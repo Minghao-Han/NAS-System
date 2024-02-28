@@ -18,7 +18,7 @@
               size="large"
               clearable
               placeholder="请输入账号"
-              v-model.trim="formData.account"
+              v-model.trim="formData.username"
               maxLength="150"
           >
             <template #prefix>
@@ -142,6 +142,7 @@ import md5 from "js-md5";
 import axios from "axios";
 import download from "../Func/download";
 import exportData  from "../Func/download";
+import saveUserInfo from "../Func/saveUserInfo";
 //添加文件
 
 const downloadFile = async () => {
@@ -243,70 +244,84 @@ const doSubmit = () => {
       delete params.registerPassword;
       delete params.reRegisterPassword;
     }
-    //登录
-    if (opType.value == 1) {
-      let cookieLoginInfo = proxy.VueCookies.get("loginInfo");
-      let cookiePassword =
-        cookieLoginInfo == null ? null : cookieLoginInfo.password;
-      if (params.password !== cookiePassword) {
-        params.password = md5(params.password);
-      }
-    }
-    let url = null;
-    if (opType.value == 0) {
-      url = api.register;
-    } else if (opType.value == 1) {
-      url = api.login;
-    } else if (opType.value == 2) {
-      url = api.resetPwd;
-    }
-
-    // console.log("params")
-    // console.log(params)
-    // console.log("url")
-    // console.log(url)
-
-    // axios({
-    //   url:'https://localhost:443/login',
-    //   method:'post',
-    //   headers:{
-    //     token:localStorage.getItem("token")
+    //登录 密码加密了
+    // if (opType.value == 1) {
+    //   let cookieLoginInfo = proxy.VueCookies.get("loginInfo");
+    //   let cookiePassword =
+    //     cookieLoginInfo == null ? null : cookieLoginInfo.password;
+    //   if (params.password !== cookiePassword) {
+    //     params.password = md5(params.password);
     //   }
-    // }).then(res=>res.data).then(res=>{
-    //   if(res.resultCode===200){
-    //     // console.log("3339")
-    //     this.$message({
-    //       type: 'success',
-    //       message: '删除成功!'
-    //     })
-    //   }else{
-    //     this.$message.error("删除失败")
-    //   }})
+    // }
+    // let url = null;
+    // if (opType.value == 0) {
+    //   url = api.register;
+    // } else if (opType.value == 1) {
+    //   url = api.login;
+    // } else if (opType.value == 2) {
+    //   url = api.resetPwd;
+    // }
+
 
     let data = {
-  "username":"hmh",
-  "password":"123456"
+  "username":params.username,
+  "password":params.password
 }
 
-    axios.post('https://localhost:443/login', data, {
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    })
-        .then(response => {
-          // 处理响应
-          console.log(response.data);
-          console.log(response);
-          proxy.VueCookies.set("userInfo", response.config.data, 0);
-          console.log(proxy.VueCookies.get("userInfo"))
-          //保存token
-          //跳转路由
-         localStorage.setItem("token",response.data.token)
-        })
-        .catch(error => {
-          // 处理错误
-          console.error(error);
-        });
+    console.log(data)
+    //跳转路由
+    proxy.Message.success("登录成功");
+    router.push('/main/all').catch(err => {
+      console.log(err)})
+
+
+//     axios.post('https://localhost:443/login', data, {
+//       headers: {
+//         'Content-Type': 'application/json'
+//       }
+//     })
+//         .then(response => {
+//           // 处理响应
+//           //console.log(response.data);
+//           console.log(response);  proxy.Message.success("登录成功");
+// //登录成功
+//           if(response.status===200)
+//           {
+//             localStorage.setItem("token",response.data.token)
+//
+//             //获取用户信息
+//             axios.get('https://localhost:443/user/info',  {
+//               headers: {
+//                 'Content-Type': 'application/json',
+//                 'token':localStorage.getItem("token")
+//               }
+//             })
+//                 .then(response => {
+//                   if(response.status===200)
+//                   {
+//                     console.log(response.data)
+//                     saveUserInfo(response.data.userInfo)
+//                   }
+//                   else proxy.Message.error("获取用户数据失败")
+//                   //跳转路由
+
+//                    router.push('/main/all').catch(err => {
+//                      console.log(err)
+//                    })
+//                 })
+//                 .catch(error => {
+//                   // 处理错误
+//                   console.error(error);
+//                 });
+//           }
+//
+//           //保存token
+//
+//         })
+//         .catch(error => {
+//           // 处理错误
+//           console.error(error);
+//         });
 
     // let result = await proxy.Request({
     //   url: url,
@@ -317,13 +332,11 @@ const doSubmit = () => {
     //   }
     //
     // });
-    console.log("登录")
-    proxy.Message.success("登录成功");
 
 
-    // await router.push('/').catch(err => {
-    //   console.log(err)
-    // })
+
+
+
 
     //await router.replace({path: "/"})
     //注册返回

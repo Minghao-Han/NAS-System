@@ -35,7 +35,7 @@ const getData = (dsport,data) => {
 
         headers: {
             'token':localStorage.getItem("token"),
-            'filePath':'\\test.jpg',
+            'filePath':'\\test.mp4',
         },
         responseType:'blob'
     })
@@ -43,12 +43,42 @@ const getData = (dsport,data) => {
             // 处理响应
             console.log("j结果")
             console.log(response)
-            let blob = response
             let content = [];
-            let fileName = 'test.bin'
-            //  必须把blob内容放到一个数组里
-            content.push(blob);
-            downloadFile(content, fileName)
+            let fileName = 'test.mp4'
+
+
+            // //读取文件
+            // // 1.创建 FileReader 对象
+            // const fileReader = new FileReader()
+            // // 2.开始读取指定的Blob中的内容。一旦完成，result属性中将包含一个字符串以表示所读取的文件内容。
+            // fileReader.readAsText(response.data) // 3.以字符串的形式读取出来
+            // fileReader.onload = () => {
+            //     // 4.该事件在读取操作完成时触发。注意：此时this指向fileReader
+            //
+            //     let result = JSON.parse(result) //获取的结果根据后端返回的数据类型选用json.parse
+            //     if (result.code !== 0) {
+            //         //如果读取失败进行响应的操作或提示
+            //         return this.$message.error('文件读取失败')
+            //     }
+            // }
+//导出文件
+
+            content.push(response.data);
+            console.log("content.length")
+            console.log(content.length)
+            const url = window.URL.createObjectURL(new Blob(content))
+            const link = document.createElement('a')
+            link.style.display = "none"
+            link.href = url
+            link.setAttribute('download', fileName)
+            document.body.appendChild(link)
+            link.click()
+            setTimeout(function() {
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(link);
+            }, 100);
+            //content.push(blob);
+            //downloadFile(content, fileName)
 
         })
         .catch(error => {
@@ -67,14 +97,14 @@ const downloadFile = (data, fileName) => {
     link.setAttribute('download', fileName)
     document.body.appendChild(link)
     link.click()
-    //下载完成移除元素
-    document.body.removeChild(link)
-    //释放掉blob对象
-    window.URL.revokeObjectURL(url)
+    setTimeout(function() {
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(link);
+    }, 100);
 };
 
 const exportData = async () => {
-    let data="/test.jpg"
+    let data="/test.mp4"
     let res = await getPort(data);
     // res就是开篇文章那个返回的跟乱码一样的数据
 

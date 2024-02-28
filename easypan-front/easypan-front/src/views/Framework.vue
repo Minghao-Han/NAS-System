@@ -3,25 +3,25 @@
     <div class="header">
       <div class="logo">
         <span class="iconfont icon-pan"></span>
-        <span class="name">Easy云盘</span>
+        <span class="name">Nas云盘</span>
       </div>
       <div class="right-panel">
         <el-popover
-          :width="800"
-          trigger="click"
-          v-model:visible="showUploader"
-          :offset="20"
-          transition="none"
-          :hide-after="0"
-          :popper-style="{ padding: '0px' }"
+            :width="800"
+            trigger="click"
+            v-model:visible="showUploader"
+            :offset="20"
+            transition="none"
+            :hide-after="0"
+            :popper-style="{ padding: '0px' }"
         >
           <template #reference>
             <span class="iconfont icon-transfer"></span>
           </template>
           <template #default>
             <Uploader
-              ref="uploaderRef"
-              @uploadCallback="uploadCallbackHandler"
+                ref="uploaderRef"
+                @uploadCallback="uploadCallbackHandler"
             ></Uploader>
           </template>
         </el-popover>
@@ -30,14 +30,13 @@
           <div class="user-info">
             <div class="avatar">
               <Avatar
-                :userId="userInfo.username"
-                :avatar="userInfo.avatar"
-                :timestamp="timestamp"
-                :width="46"
+                  :userId="userInfo.username"
+                  :timestamp="timestamp"
+                  :width="46"
               ></Avatar>
 
             </div>
-            <span class="nick-name">{{ userInfo.nickName }}</span>
+            <span class="nick-name">{{ userInfo.username }}</span>
           </div>
           <template #dropdown>
             <el-dropdown-menu>
@@ -47,7 +46,7 @@
               <el-dropdown-item @click="updatePassword">
                 修改密码
               </el-dropdown-item>
-              <el-dropdown-item @click="logout"> 退出 </el-dropdown-item>
+              <el-dropdown-item @click="logout"> 退出</el-dropdown-item>
             </el-dropdown-menu>
           </template>
         </el-dropdown>
@@ -58,14 +57,14 @@
         <div class="menu-list">
           <template v-for="item in menus">
             <div
-              v-if="item.allShow || (!item.allShow && false)"
-              @click="jump(item)"
-              :class="[
+                v-if="item.allShow || (!item.allShow && false)"
+                @click="jump(item)"
+                :class="[
                 'menu-item',
                 item.menuCode == currentMenu.menuCode ? 'active' : '',
               ]"
             >
-<!--              v-if="item.allShow || (!item.allShow && userInfo.admin)"-->
+              <!--              v-if="item.allShow || (!item.allShow && userInfo.admin)"-->
               <div :class="['iconfont', 'icon-' + item.icon]"></div>
               <div class="text">
                 {{ item.name }}
@@ -75,13 +74,13 @@
         </div>
         <div class="menu-sub-list">
           <div
-            @click="jump(sub)"
-            :class="['menu-item-sub', currentPath == sub.path ? 'active' : '']"
-            v-for="sub in currentMenu.children"
+              @click="jump(sub)"
+              :class="['menu-item-sub', currentPath == sub.path ? 'active' : '']"
+              v-for="sub in currentMenu.children"
           >
             <span
-              :class="['iconfont', 'icon-' + sub.icon]"
-              v-if="sub.icon"
+                :class="['iconfont', 'icon-' + sub.icon]"
+                v-if="sub.icon"
             ></span>
             <span class="text">{{ sub.name }}</span>
           </div>
@@ -92,12 +91,12 @@
             <div>空间使用</div>
             <div class="percent">
               <el-progress
-                :percentage="
+                  :percentage="
                   Math.floor(
                     (useSpaceInfo.useSpace / useSpaceInfo.totalSpace) * 10000
                   ) / 100
                 "
-                color="#409eff"
+                  color="#409eff"
               />
             </div>
 
@@ -114,18 +113,18 @@
       <div class="body-content">
         <router-view v-slot="{ Component }">
           <component
-            @addFile="addFile"
-            ref="routerViewRef"
-            :is="Component"
-            @reload="getUseSpace"
+              @addFile="addFile"
+              ref="routerViewRef"
+              :is="Component"
+              @reload="getUseSpace"
           />
         </router-view>
       </div>
     </div>
     <!--修改头像-->
     <UpdateAvatar
-      ref="updateAvatarRef"
-      @updateAvatar="reloadAvatar"
+        ref="updateAvatarRef"
+        @updateAvatar="reloadAvatar"
     ></UpdateAvatar>
     <!--修改密码-->
     <UpdatePassword ref="updatePasswordRef"></UpdatePassword>
@@ -135,6 +134,7 @@
 <script setup>
 import UpdateAvatar from "./UpdateAvatar.vue";
 import UpdatePassword from "./UpdatePassword.vue";
+import getUserInfo from "../Func/getUserInfo";
 import Uploader from "@/views/main/Uploader.vue";
 import {
   ref,
@@ -144,8 +144,10 @@ import {
   nextTick,
   computed,
 } from "vue";
-import { useRouter, useRoute } from "vue-router";
-const { proxy } = getCurrentInstance();
+import {useRouter, useRoute} from "vue-router";
+import * as assert from "assert";
+
+const {proxy} = getCurrentInstance();
 const router = useRouter();
 const route = useRoute();
 
@@ -160,7 +162,7 @@ const showUploader = ref(false);
 //添加文件
 const uploaderRef = ref();
 const addFile = (data) => {
-  const { file, filePid } = data;
+  const {file, filePid} = data;
   showUploader.value = true;
   uploaderRef.value.addFile(file, filePid);
 };
@@ -176,12 +178,15 @@ const uploadCallbackHandler = () => {
 
 const timestamp = ref(0);
 //获取用户信息
-//const userInfo = ref(proxy.VueCookies.get("userInfo"));
+//const userInfo = getUserInfo()
 const userInfo = {
-  username:"hhh",
-  avatar:"hhh",
-  nickName:"hhh",
+  'username': 'hmh'
 }
+// const userInfo = {
+//   username:"hhh",
+//   avatar:"hhh",
+//   nickName:"hhh",
+// }
 
 console.log(userInfo)
 const menus = [
@@ -196,6 +201,7 @@ const menus = [
         icon: "all",
         name: "全部",
         category: "all",
+        //path: "/all",
         path: "/main/all",
       },
       {
@@ -299,13 +305,13 @@ const setMenu = (menuCode, path) => {
 };
 
 watch(
-  () => route,
-  (newVal, oldVal) => {
-    if (newVal.meta.menuCode) {
-      setMenu(newVal.meta.menuCode, newVal.path);
-    }
-  },
-  { immediate: true, deep: true }
+    () => route,
+    (newVal, oldVal) => {
+      if (newVal.meta.menuCode) {
+        setMenu(newVal.meta.menuCode, newVal.path);
+      }
+    },
+    {immediate: true, deep: true}
 );
 
 //修改头像
@@ -327,19 +333,20 @@ const updatePassword = () => {
 //退出登录
 const logout = () => {
   proxy.Confirm(`你确定要删除退出吗`, async () => {
-    let result = await proxy.Request({
-      url: api.logout,
-    });
-    if (!result) {
-      return;
-    }
-    proxy.VueCookies.remove("userInfo");
+    // let result = await proxy.Request({
+    //   url: api.logout,
+    // });
+    // if (!result) {
+    //   return;
+    // }
+    // proxy.VueCookies.remove("userInfo");
+    localStorage.clear();
     router.push("/login");
   });
 };
 
 //使用空间
-const useSpaceInfo = ref({ useSpace: 0, totalSpace: 1 });
+const useSpaceInfo = ref({useSpace: 0, totalSpace: 1});
 const getUseSpace = async () => {
   let result = await proxy.Request({
     url: api.getUseSpace,
@@ -368,10 +375,12 @@ getUseSpace();
   .logo {
     display: flex;
     align-items: center;
+
     .icon-pan {
       font-size: 40px;
       color: #1296db;
     }
+
     .name {
       font-weight: bold;
       margin-left: 5px;
@@ -379,84 +388,105 @@ getUseSpace();
       color: #05a1f5;
     }
   }
+
   .right-panel {
     display: flex;
     align-items: center;
+
     .icon-transfer {
       cursor: pointer;
     }
+
     .user-info {
       margin-right: 10px;
       display: flex;
       align-items: center;
       cursor: pointer;
+
       .avatar {
         margin: 0px 5px 0px 15px;
       }
+
       .nick-name {
         color: #05a1f5;
       }
     }
   }
 }
+
 .body {
   display: flex;
+
   .left-sider {
     border-right: 1px solid #f1f2f4;
     display: flex;
+
     .menu-list {
       height: calc(100vh - 56px);
       width: 80px;
       box-shadow: 0 3px 10px 0 rgb(0 0 0 / 6%);
       border-right: 1px solid #f1f2f4;
+
       .menu-item {
         text-align: center;
         font-size: 14px;
         font-weight: bold;
         padding: 20px 0px;
         cursor: pointer;
+
         &:hover {
           background: #f3f3f3;
         }
+
         .iconfont {
           font-weight: normal;
           font-size: 28px;
         }
       }
+
       .active {
         .iconfont {
           color: #06a7ff;
         }
+
         .text {
           color: #06a7ff;
         }
       }
     }
+
     .menu-sub-list {
       width: 200px;
       padding: 20px 10px 0px;
       position: relative;
+
       .menu-item-sub {
         text-align: center;
         line-height: 40px;
         border-radius: 5px;
         cursor: pointer;
+
         &:hover {
           background: #f3f3f3;
         }
+
         .iconfont {
           font-size: 14px;
           margin-right: 20px;
         }
+
         .text {
           font-size: 13px;
         }
       }
+
       .active {
         background: #eef9fe;
+
         .iconfont {
           color: #05a1f5;
         }
+
         .text {
           color: #05a1f5;
         }
@@ -473,17 +503,21 @@ getUseSpace();
         bottom: 10px;
         width: 100%;
         padding: 0px 5px;
+
         .percent {
           padding-right: 10px;
         }
+
         .space-use {
           margin-top: 5px;
           color: #7e7e7e;
           display: flex;
           justify-content: space-around;
+
           .use {
             flex: 1;
           }
+
           .iconfont {
             cursor: pointer;
             margin-right: 20px;
@@ -493,6 +527,7 @@ getUseSpace();
       }
     }
   }
+
   .body-content {
     flex: 1;
     width: 0;
