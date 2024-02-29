@@ -1,7 +1,6 @@
 package Service
 
 import (
-	"bufio"
 	"errors"
 	"fmt"
 	"github.com/gin-gonic/gin"
@@ -18,12 +17,12 @@ import (
 )
 
 var (
-	STOP        int64 = -1
-	CANCEL      int64 = -2
-	NoOp        int64 = -3
-	bufferSize        = int64(Utils.DefaultConfigReader().Get("download:bufferSize").(int))
-	sectionNum        = Utils.DefaultConfigReader().Get("download:sectionNum").(int)
-	sectionSize       = bufferSize / int64(sectionNum)
+	RESUME      int = -1
+	CANCEL      int = -2
+	NoOp        int = -3
+	bufferSize      = int64(Utils.DefaultConfigReader().Get("download:bufferSize").(int))
+	sectionNum      = Utils.DefaultConfigReader().Get("download:sectionNum").(int)
+	sectionSize     = bufferSize / int64(sectionNum)
 )
 
 // UploadSmallFile call this function to upload a small file.
@@ -74,12 +73,12 @@ func UploadSmallFile(c *gin.Context, path string, fileSize uint64, fileName stri
 	}
 	userRoot := diskRoot + strconv.Itoa(userId)
 	_, daErr := uploadDA.Insert(Entities.UploadLog{
-		Id:             0,
-		Uploader:       userId,
-		Path:           strings.ReplaceAll(filePath, userRoot, ""),
-		Finished:       true,
-		Received_bytes: fileSize,
-		Size:           fileSize,
+		Id:            0,
+		Uploader:      userId,
+		Path:          strings.ReplaceAll(filePath, userRoot, ""),
+		Finished:      true,
+		ReceivedBytes: fileSize,
+		Size:          fileSize,
 	})
 	if daErr != nil {
 		fmt.Println(daErr.Error())
@@ -132,13 +131,15 @@ func Upload(c *gin.Context, offset uint64, uploadPath string, fileSize uint64, u
 	/*如果是续传就检查数据库中的项正不正确，如果是新上传就要检查是否有同名文件*/
 	/*If it's a resume upload, check if the items in the database are correct. If it's a new upload, check for the existence of a file with the same name.*/
 	var file *os.File
-	if uploadId != -1 {
+	var receivedBytes uint64 = 0
+	if uploadId == RESUME {
 		uploadLog, _ := uploadDA.FindById(uploadId)
-		if uploadLog.Finished == true || uploadLog.Received_bytes != offset || uploadLog.Path != uploadPath {
+		if uploadLog.Finished == true || uploadLog.ReceivedBytes != offset || uploadLog.Path != uploadPath {
 			c.JSON(http.StatusUnprocessableEntity, gin.H{
 				"msg": "resume upload failed",
 			})
 		}
+		receivedBytes = uploadLog.ReceivedBytes
 		file, err = os.Open(fullFilePath)
 		defer file.Close()
 	} else {
@@ -148,50 +149,71 @@ func Upload(c *gin.Context, offset uint64, uploadPath string, fileSize uint64, u
 			Uploader:       userId,
 			Path:           GetUserRelativePath(fullFilePath, userId),
 			Finished:       false,
-			Received_bytes: 0,
+			ReceivedBytes:  24, //预留24，因为每个文件都要使用随机生成的nonce加密，nonce为24B，并明文放在文件头
 			Size:           fileSize,
 			ClientFilePath: clientFilePath,
 		})
 		file, err = os.Create(fullFilePath)
-		defer file.Close()
+		defer func(file *os.File) {
+			err := file.Close()
+			if err != nil {
+				fmt.Println(err.Error())
+			}
+		}(file)
 	}
 	if err != nil {
 		return err
 	}
-	var receivedBytes uint64 = 0
-	fileWriter := bufio.NewWriter(file)
+	cha20FileIO, err := Utils.DefaultChaCha20FileIO(file, file)
+	if err != nil {
+		fmt.Println(err.Error())
+		return err
+	}
 	plaintext := make([]byte, bufferSize)
 	/*从请求头读取*/
 	/*read from request header*/
+	fileSize -= receivedBytes //减掉已上传的部分
+	receivedBytes = 0         //receivedBytes重新置0，表示这次接收的字节数
 	for {
+		// http 长连接，可以不断从body中读。
 		n, readErr := c.Request.Body.Read(plaintext)
-		if receivedBytes >= 9752518000 {
-			fmt.Println("here")
-		}
-		if readErr != nil && readErr != io.EOF && !errors.Is(readErr, http.ErrBodyReadAfterClose) { //读取出错
+		if readErr != nil && readErr != io.EOF && !errors.Is(readErr, http.ErrBodyReadAfterClose) { //读取出错 read error
 			break
 		}
 		if n == 0 || receivedBytes >= fileSize {
 			break
 		}
-		if _, err := fileWriter.Write(plaintext[:n]); err != nil { //写入错误
+
+		//使用chacha20 代理的writer
+		if _, err := cha20FileIO.Write(plaintext[:n], file); err != nil { //写入错误
 			break
 		}
 		receivedBytes += uint64(n)
 	}
-	fileWriter.Flush()
+	err = cha20FileIO.Close()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"msg": err.Error(),
+		})
+	}
 	c.JSON(http.StatusOK, gin.H{
 		"msg": "uploaded",
 	})
 	//更新上传记录
 	//update upload log
 	uploadLog, _ := uploadDA.FindById(uploadId)
-	uploadLog.Received_bytes = receivedBytes
-	uploadDA.Update(*uploadLog)
+	uploadLog.ReceivedBytes += receivedBytes
+	_, err = uploadDA.Update(*uploadLog)
+	if err != nil {
+		return err
+	}
 	//更新用户容量
 	//update user's margin
 	user, err := userDA.FindById(userId)
 	user.Margin -= receivedBytes
-	userDA.Update(*user)
+	_, err = userDA.Update(*user)
+	if err != nil {
+		return err
+	}
 	return nil
 }
