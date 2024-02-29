@@ -56,7 +56,12 @@ func FindById(id int) (*Entities.UploadLog, error) {
 		fmt.Printf("query data failed: %v\n", err)
 		return nil, err
 	}
-	defer rows.Close()
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			fmt.Println(err.Error())
+		}
+	}(rows)
 	if rows.Next() {
 		var uploadLog Entities.UploadLog
 		//只取查询的第一个
@@ -89,7 +94,12 @@ func FindByUploader(uploader string) (uploadlogs []Entities.UploadLog, err error
 		fmt.Printf("query data failed: %v\n", err)
 		return nil, err
 	}
-	defer rows.Close()
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			fmt.Println(err.Error())
+		}
+	}(rows)
 
 	for rows.Next() {
 		var uploadLog Entities.UploadLog
@@ -123,7 +133,12 @@ func FindUnfinishedByUploader(uploader string) (uploadlogs []Entities.UploadLog,
 		fmt.Printf("query data failed: %v\n", err)
 		return nil, err
 	}
-	defer rows.Close()
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			fmt.Println(err.Error())
+		}
+	}(rows)
 
 	for rows.Next() {
 		var uploadLog Entities.UploadLog
