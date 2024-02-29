@@ -8,7 +8,6 @@ import (
 	uploadDA "nas/project/src/DA/uploadLogDA"
 	"nas/project/src/DA/userDA"
 	"nas/project/src/Utils"
-	"nas/project/src/Utils/ImageUtil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -87,7 +86,7 @@ func GetThumbnail(userId int, filePath string) (*bytes.Buffer, error) {
 	if err != nil {
 		return nil, err
 	}
-	img, err := ImageUtil.ImgDecode(decryptImgBuf, filepath.Ext(filePath))
+	img, err := Utils.ImgDecode(decryptImgBuf, filepath.Ext(filePath))
 	if err != nil {
 		return nil, err
 	}
