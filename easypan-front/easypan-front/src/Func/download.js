@@ -1,11 +1,15 @@
 import axios from "axios";
+
 const getPort = (data) =>{
     let dsport
     console.log("get")
     axios.get('https://localhost:443/user/file/large', {
         headers: {
             'Content-Type': 'application/json',
-            'token':localStorage.getItem("token")
+            'token':localStorage.getItem("token"),
+            'path':'\\',
+            'filename':'test.mp4',
+            'size':'34'
         }
     })
         .then(response => {
@@ -35,7 +39,8 @@ const getData = (dsport,data) => {
 
         headers: {
             'token':localStorage.getItem("token"),
-            'filePath':'\\test.mp4',
+            'filePath':'/test.mp4',
+            'size':'34'
         },
         responseType:'blob'
     })

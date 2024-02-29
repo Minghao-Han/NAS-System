@@ -97,6 +97,7 @@ func LargeFileUploadPrepare(path string, fileSize uint64, userId int) error {
 	destinyPath := diskRoot + strconv.Itoa(userId) + path
 	_, dirErr := os.Stat(destinyPath)
 	if os.IsNotExist(dirErr) {
+		fmt.Println(destinyPath)
 		return fmt.Errorf("destiny folder doesn't exist")
 	}
 	return nil

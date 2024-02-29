@@ -14,8 +14,8 @@ Database:
 # You need to set the root path of this nas since this nas system is depending on existing file system such as the APFS on Mac.
 # SlashStyle: Specify the slash style of your file system. Some file systems may use '\' instead of '/'.
 FileSystem:
-  DiskRoot: "/Users/hanminghao/Desktop/study/NAS_Disk_Root/"
-  SlashStyle: "/"
+  DiskRoot: "D:\\Repository\\simulation\\test\\"
+  SlashStyle: "\\"
 
 # Specify the file formats you want this system to recognize and then decorate its cover when users checking their folders.
 # Notice that formats that haven't mentioned can also be accurately store and download, just without nice-look cover.
