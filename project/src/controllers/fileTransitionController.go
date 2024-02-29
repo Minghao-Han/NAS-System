@@ -18,8 +18,8 @@ var (
 	STOP        int64 = -1
 	CANCEL      int64 = -2
 	NO_OP       int64 = -3
-	bufferSize        = int64(Utils.DefaultConfigReader().Get("download:bufferSize").(int))
-	sectionNum        = Utils.DefaultConfigReader().Get("download:sectionNum").(int)
+	bufferSize        = int64(Utils.DefaultConfigReader().Get("Download:bufferSize").(int))
+	sectionNum        = Utils.DefaultConfigReader().Get("Download:sectionNum").(int)
 	sectionSize       = bufferSize / int64(sectionNum)
 )
 var portsManager = PortManage.DefaultPortsManager()
@@ -241,7 +241,7 @@ func DsForDownload(c *gin.Context) {
 		if err != nil {
 		}
 	}(file)
-	cha20FileIO, err := Utils.DefaultChaCha20FileIO(file, file)
+	cha20FileIO, err := Utils.DefaultChaCha20FileIO(file, nil)
 	if err != nil {
 		c.JSON(http.StatusUnprocessableEntity, gin.H{
 			"msg": err.Error(),

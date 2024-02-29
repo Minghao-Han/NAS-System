@@ -34,7 +34,7 @@ func GetNormalRouter() *gin.Engine {
 			userDirApi.POST("", controllers.CreateDir)
 			userDirApi.DELETE("", controllers.DeleteDir)
 		}
-		userApi.GET("/thumbnail/:file_path", controllers.GetThumbnail)
+		userApi.GET("/thumbnail", controllers.GetThumbnail) //要改
 	}
 	/*adminRouter := NormalRouter.Group("/admin")*/
 	return NormalRouter

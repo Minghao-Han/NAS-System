@@ -12,8 +12,7 @@ import (
 
 type Cha20IO struct {
 	key       []byte
-	encoder   *chacha20.Cipher
-	decoder   *chacha20.Cipher
+	cipher    *chacha20.Cipher
 	bufReader *bufio.Reader
 	bufWriter *bufio.Writer
 }
@@ -28,8 +27,7 @@ func DefaultChaCha20FileIO(reader io.Reader, writer io.Writer) (*Cha20IO, error)
 	var err error
 	nonce := make([]byte, chacha20.NonceSizeX)
 	//要区分是新创建的空文件还是老文件再追加。如果是新，rand一个nonce；如果是旧，读之前的nonce
-	n, _ := reader.Read(nonce)
-	if n == 0 { //indicate that this is a new file, we need to generate a random nonce for it.
+	if reader == nil { //indicate that this is a new file, we need to generate a random nonce for it.
 		if _, err := rand.Read(nonce); err != nil {
 			return nil, err
 		}
@@ -41,11 +39,21 @@ func DefaultChaCha20FileIO(reader io.Reader, writer io.Writer) (*Cha20IO, error)
 		if err != nil {
 			return nil, err
 		}
-	} else if n != chacha20.NonceSizeX {
-		return nil, fmt.Errorf("file corruption")
+	} else {
+		s.bufReader = bufio.NewReader(reader)
+		n, err := reader.Read(nonce)
+		if err != nil && err != io.EOF {
+			return nil, err
+		}
+		if n != chacha20.NonceSizeX {
+			return nil, fmt.Errorf("file corruption")
+		}
 	}
+	if writer != nil {
+		s.bufWriter = bufio.NewWriter(writer)
+	}
+	s.cipher, err = chacha20.NewUnauthenticatedCipher(s.key, nonce)
 
-	s.encoder, err = chacha20.NewUnauthenticatedCipher(s.key, nonce)
 	if err != nil {
 		return nil, err
 	}
@@ -77,13 +85,23 @@ func NewCha20IO(key []byte, reader io.Reader, writer io.Writer) (*Cha20IO, error
 		return nil, fmt.Errorf("file corruption")
 	}
 
-	s.encoder, err = chacha20.NewUnauthenticatedCipher(s.key, nonce)
+	s.cipher, err = chacha20.NewUnauthenticatedCipher(s.key, nonce)
 	if err != nil {
 		return nil, err
 	}
 
 	return s, nil
 }
+
+func (s *Cha20IO) Write(p []byte) (int, error) {
+	dst := make([]byte, len(p))
+	if s.bufWriter == nil {
+		return 0, fmt.Errorf("no writer")
+	}
+	s.cipher.XORKeyStream(dst, p)
+	return s.bufWriter.Write(dst)
+}
+
 func (s *Cha20IO) Read(p []byte, reader io.Reader) (int, error) {
 	s.bufReader = bufio.NewReader(reader)
 	n, err := s.bufReader.Read(p)
@@ -93,36 +111,39 @@ func (s *Cha20IO) Read(p []byte, reader io.Reader) (int, error) {
 	}
 
 	dst := make([]byte, n)
-	s.decoder.XORKeyStream(dst, p[:n])
+	s.cipher.XORKeyStream(dst, p[:n])
 	copy(p[:n], dst)
 	return n, nil
 }
 func (s *Cha20IO) ReadAt(p []byte, file *os.File, offset int64) (int, error) { //Only for file io
-	if s.decoder == nil {
-		nonce := make([]byte, chacha20.NonceSizeX)
-		//if n, err := s.buffer.Read(nonce); err != nil || n != len(nonce) {
-		if n, err := file.ReadAt(nonce, 0); err != nil || n != len(nonce) {
-			return n, errors.New("can't read nonce from stream: " + err.Error())
-		}
-		decoder, err := chacha20.NewUnauthenticatedCipher(s.key, nonce)
-		if err != nil {
-			return 0, errors.New("generate decoder failed: " + err.Error())
-		}
-		s.decoder = decoder
-	}
 	_, err := file.Seek(offset, io.SeekStart)
 	if err != nil {
 		return 0, err
 	}
 	return s.Read(p, file)
 }
-func (s *Cha20IO) Write(p []byte, writer io.Writer) (int, error) {
-	dst := make([]byte, len(p))
-	s.encoder.XORKeyStream(dst, p)
-	if s.bufWriter == nil {
-		s.bufWriter = bufio.NewWriter(writer)
+
+// DecryptCopy read from s.bufReader, decrypt it and write to s.bufWriter
+func (s *Cha20IO) DecryptCopy() error {
+	if s.bufWriter == nil || s.bufReader == nil {
+		return fmt.Errorf("deficient reader or writer")
 	}
-	return s.bufWriter.Write(dst)
+	cipherText := make([]byte, 256)
+	plaintext := make([]byte, 256)
+	// Maybe this is a duplication. However, i have to do so for faster response time as calling Read() for many times is to add unnecessary cost.
+	for {
+		n, err := s.bufReader.Read(cipherText)
+		if err != nil && err != io.EOF {
+			return err
+		}
+		if n == 0 {
+			break
+		}
+		s.cipher.XORKeyStream(plaintext, cipherText[:n])
+		s.bufWriter.Write(plaintext)
+	}
+	s.bufWriter.Flush()
+	return nil
 }
 
 func (s *Cha20IO) Close() error {
@@ -131,8 +152,7 @@ func (s *Cha20IO) Close() error {
 	}
 	s.bufReader = nil
 	s.bufWriter = nil
-	s.encoder = nil
-	s.decoder = nil
+	s.cipher = nil
 	return nil
 }
 
@@ -149,7 +169,7 @@ func encrypt() {
 		encryptFile.Close()
 	}()
 	/*3. new an instance of Cha20IO*/
-	cha20IO, err := NewCha20IO([]byte("a1b2c3d4e5f6g7h8i9j0k1l2m3n4o522"), encryptFile, encryptFile)
+	cha20IO, err := NewCha20IO([]byte("a1b2c3d4e5f6g7h8i9j0k1l2m3n4o522"), nil, encryptFile)
 	if err != nil {
 		fmt.Println(err.Error())
 	}
@@ -163,7 +183,7 @@ func encrypt() {
 			break
 		}
 		/*6. Write the plain text to file. The cha20IO.Write() will automatically encrypt it and then write to the file*/
-		_, err := cha20IO.Write(plaintext[:n], encryptFile)
+		_, err := cha20IO.Write(plaintext[:n])
 		if err != nil {
 			panic(err)
 		}
@@ -183,7 +203,7 @@ func decrypt() {
 		decryptFile.Close()
 	}()
 	/*3. new an instance of Cha20IO*/
-	cha20IO, err := NewCha20IO([]byte("a1b2c3d4e5f6g7h8i9j0k1l2m3n4o522"), encryptFile, encryptFile)
+	cha20IO, err := NewCha20IO([]byte("a1b2c3d4e5f6g7h8i9j0k1l2m3n4o522"), encryptFile, nil)
 	if err != nil {
 		panic(err)
 	}

@@ -20,8 +20,8 @@ var (
 	RESUME      int = -1
 	CANCEL      int = -2
 	NoOp        int = -3
-	bufferSize      = int64(Utils.DefaultConfigReader().Get("download:bufferSize").(int))
-	sectionNum      = Utils.DefaultConfigReader().Get("download:sectionNum").(int)
+	bufferSize      = int64(Utils.DefaultConfigReader().Get("Download:bufferSize").(int))
+	sectionNum      = Utils.DefaultConfigReader().Get("Download:sectionNum").(int)
 	sectionSize     = bufferSize / int64(sectionNum)
 )
 
@@ -164,7 +164,7 @@ func Upload(c *gin.Context, offset uint64, uploadPath string, fileSize uint64, u
 	if err != nil {
 		return err
 	}
-	cha20FileIO, err := Utils.DefaultChaCha20FileIO(file, file)
+	cha20FileIO, err := Utils.DefaultChaCha20FileIO(nil, file)
 	if err != nil {
 		fmt.Println(err.Error())
 		return err
@@ -185,7 +185,7 @@ func Upload(c *gin.Context, offset uint64, uploadPath string, fileSize uint64, u
 		}
 
 		//使用chacha20 代理的writer
-		if _, err := cha20FileIO.Write(plaintext[:n], file); err != nil { //写入错误
+		if _, err := cha20FileIO.Write(plaintext[:n]); err != nil { //写入错误
 			break
 		}
 		receivedBytes += uint64(n)
