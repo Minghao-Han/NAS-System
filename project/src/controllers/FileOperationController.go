@@ -68,7 +68,7 @@ func MoveFile(c *gin.Context) {
 func CheckDir(c *gin.Context) {
 	value, _ := c.Get("userId")
 	userId := value.(int)
-	dirPath := c.Param("dir_path")
+	dirPath := c.GetHeader("dir_path")
 	dirPath = strings.ReplaceAll(dirPath, "_", Service.Slash)
 	order := c.Param("order")
 	catalog := c.Param("catalog")

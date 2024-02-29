@@ -30,7 +30,7 @@ func GetNormalRouter() *gin.Engine {
 		}
 		userDirApi := userApi.Group("/dir")
 		{
-			userDirApi.GET("/:dir_path/:catalog/:order/:page_num", controllers.CheckDir)
+			userDirApi.GET("/:catalog/:order/:page_num", controllers.CheckDir)
 			userDirApi.POST("", controllers.CreateDir)
 			userDirApi.DELETE("", controllers.DeleteDir)
 		}

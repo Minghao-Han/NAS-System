@@ -169,6 +169,20 @@ func Upload(c *gin.Context, offset uint64, uploadPath string, fileSize uint64, u
 		fmt.Println(err.Error())
 		return err
 	}
+	fileHeader, err := c.FormFile("file")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"msg": err.Error(),
+		})
+		return err
+	}
+	formFile, openErr := fileHeader.Open()
+	if openErr != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"msg": openErr.Error(),
+		})
+		return openErr
+	}
 	plaintext := make([]byte, bufferSize)
 	/*从请求头读取*/
 	/*read from request header*/
@@ -176,7 +190,8 @@ func Upload(c *gin.Context, offset uint64, uploadPath string, fileSize uint64, u
 	receivedBytes = 0         //receivedBytes重新置0，表示这次接收的字节数
 	for {
 		// http 长连接，可以不断从body中读。
-		n, readErr := c.Request.Body.Read(plaintext)
+		//n, readErr := c.Request.Body.Read(plaintext)
+		n, readErr := formFile.Read(plaintext)
 		if readErr != nil && readErr != io.EOF && !errors.Is(readErr, http.ErrBodyReadAfterClose) { //读取出错 read error
 			break
 		}
