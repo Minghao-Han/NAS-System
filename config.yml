@@ -42,10 +42,15 @@ jwtKeyPath: "./project/static/jwtKey.yml"
 # Download settings.
 # bufferSize: the size of the buffer which is used to receive file one piece at a time. You can specify it regarding the capacity of your memory.
 # sectionNum:
-download:
+Download:
   #50mb
   bufferSize: 8000
   sectionNum: 10
+  thumbnail:
+    size:
+      width: 180
+      # when height is set to 0, the size of thumbnail will depend on the value of the width
+      height: 0
 
 # Ports you want to expose for file transfer.
 # FSP stands for File Stream Port

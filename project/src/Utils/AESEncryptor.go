@@ -4,11 +4,15 @@ import (
 	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
+	"log"
 )
 
 type AesEncryptor struct {
-	key []byte
-	iv  []byte
+	block        cipher.Block
+	cfbEncryptor cipher.Stream
+	cfbDecryptor cipher.Stream
+	key          []byte
+	iv           []byte
 }
 
 var defaultAesEncryptor *AesEncryptor
@@ -19,8 +23,16 @@ func DefaultAESEncryptor() *AesEncryptor {
 		keyIvYmlPath := DefaultConfigReader().Get("Aes:keyIvYmlPath").(string)
 		keyStr := YmlReader(keyIvYmlPath, "key").(string)
 		ivStr := YmlReader(keyIvYmlPath, "iv").(string)
-		defaultAesEncryptor.key = []byte(keyStr)
-		defaultAesEncryptor.iv = []byte(ivStr)
+		key := []byte(keyStr)
+		iv := []byte(ivStr)
+		defaultAesEncryptor.key = key
+		defaultAesEncryptor.iv = iv
+		block, err := aes.NewCipher(key)
+		defaultAesEncryptor.cfbEncryptor = cipher.NewCFBEncrypter(block, iv)
+		defaultAesEncryptor.cfbDecryptor = cipher.NewCFBDecrypter(block, iv)
+		if err != nil {
+			log.Fatalf("failed to create cipher: %v", err)
+		}
 	}
 	return defaultAesEncryptor
 }
@@ -37,38 +49,13 @@ func (aesEncryptor *AesEncryptor) EncryptWithPadding(plaintext []byte) ([]byte, 
 	return ciphertext, nil
 }
 
-func (aesEncryptor *AesEncryptor) DecryptWithUnpadding(ciphertext []byte) ([]byte, error) {
+func (aesEncryptor *AesEncryptor) DecryptWithoutPadding(ciphertext []byte) ([]byte, error) {
 	block, err := aes.NewCipher(aesEncryptor.key)
 	if err != nil {
 		return nil, err
 	}
 	plaintext := make([]byte, len(ciphertext))
 	mode := cipher.NewCBCDecrypter(block, aesEncryptor.iv)
-	mode.CryptBlocks(plaintext, ciphertext)
-	plaintext = pkcs7UnPadding(plaintext)
-	return plaintext, nil
-}
-
-func AesEncrypt(plaintext []byte, key []byte, iv []byte) ([]byte, error) {
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		return nil, err
-	}
-	plaintext = pkcs7Padding(plaintext, block.BlockSize())
-	ciphertext := make([]byte, len(plaintext))
-	mode := cipher.NewCBCEncrypter(block, iv)
-	mode.CryptBlocks(ciphertext, plaintext)
-
-	return ciphertext, nil
-}
-
-func AesDecrypt(ciphertext []byte, key []byte, iv []byte) ([]byte, error) {
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		return nil, err
-	}
-	plaintext := make([]byte, len(ciphertext))
-	mode := cipher.NewCBCDecrypter(block, iv)
 	mode.CryptBlocks(plaintext, ciphertext)
 	plaintext = pkcs7UnPadding(plaintext)
 	return plaintext, nil

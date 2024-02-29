@@ -17,7 +17,12 @@ func Insert(uploadLog Entities.UploadLog) (Id int, err error) {
 		return
 	}
 	//推迟数据库连接的关闭
-	defer db.Close()
+	defer func(db *sql.DB) {
+		err := db.Close()
+		if err != nil {
+			fmt.Println(err.Error())
+		}
+	}(db)
 
 	stmt, err := db.Prepare("INSERT INTO upload_log(uploader, path, finished, received_bytes, size,client_file_path) VALUES (?, ?, ?, ?,?, ?)")
 	if err != nil {
@@ -25,7 +30,7 @@ func Insert(uploadLog Entities.UploadLog) (Id int, err error) {
 	}
 
 	//执行插入操作
-	rs, err := stmt.Exec(uploadLog.Uploader, uploadLog.Path, uploadLog.Finished, uploadLog.Received_bytes, uploadLog.Size, uploadLog.ClientFilePath)
+	rs, err := stmt.Exec(uploadLog.Uploader, uploadLog.Path, uploadLog.Finished, uploadLog.ReceivedBytes, uploadLog.Size, uploadLog.ClientFilePath)
 	if err != nil {
 		return
 	}
@@ -37,7 +42,12 @@ func Insert(uploadLog Entities.UploadLog) (Id int, err error) {
 	}
 	//将id类型转换
 	Id = int(id)
-	defer stmt.Close()
+	defer func(stmt *sql.Stmt) {
+		err := stmt.Close()
+		if err != nil {
+			fmt.Println(err.Error())
+		}
+	}(stmt)
 	return
 
 }

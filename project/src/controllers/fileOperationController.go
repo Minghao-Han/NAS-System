@@ -153,8 +153,7 @@ func DeleteDir(c *gin.Context) {
 
 // GetThumbnail file_path
 func GetThumbnail(c *gin.Context) {
-	filePath := c.Param("file_path")
-	filePath = strings.ReplaceAll(filePath, "_", Service.Slash)
+	filePath := c.GetHeader("path")
 	userId := GetUserIdFromContext(c)
 	thumbnailBuf, err := Service.GetThumbnail(userId, filePath)
 	if err != nil {
