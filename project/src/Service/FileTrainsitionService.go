@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"io"
+	"mime/multipart"
 	uploadDA "nas/project/src/DA/uploadLogDA"
 	"nas/project/src/DA/userDA"
 	"nas/project/src/Entities"
@@ -17,12 +18,12 @@ import (
 )
 
 var (
-	RESUME      int = -1
-	CANCEL      int = -2
-	NoOp        int = -3
-	bufferSize      = int64(Utils.DefaultConfigReader().Get("Download:bufferSize").(int))
-	sectionNum      = Utils.DefaultConfigReader().Get("Download:sectionNum").(int)
-	sectionSize     = bufferSize / int64(sectionNum)
+	RESUME      = -1
+	CANCEL      = -2
+	NoOp        = -3
+	bufferSize  = int64(Utils.DefaultConfigReader().Get("Download:bufferSize").(int))
+	sectionNum  = Utils.DefaultConfigReader().Get("Download:sectionNum").(int)
+	sectionSize = bufferSize / int64(sectionNum)
 )
 
 // UploadSmallFile call this function to upload a small file.
@@ -32,44 +33,40 @@ func UploadSmallFile(c *gin.Context, path string, fileSize uint64, fileName stri
 		return err
 	}
 	// 获取文件字节流
-	fileData, err := c.GetRawData()
+	formFile, _, err := getFileFromFormData(c)
 	if err != nil {
 		return err
 	}
-	/*
-		bytes 用chacha20加密
-	*/
-	cipherData := make([]byte, len(fileData))
-	encryptErr := Utils.DefaultChaEncryptor().Encrypt(fileData, cipherData)
-	if encryptErr != nil {
-		return encryptErr
+	plainData := make([]byte, fileSize)
+	if err != nil {
+		return err
 	}
-	destinyPath := diskRoot + strconv.Itoa(userId) + path
-	_, dirErr := os.Stat(destinyPath)
-
-	if os.IsNotExist(dirErr) {
-		return fmt.Errorf("destiny dir doesn't exist")
+	n, err := (*formFile).Read(plainData)
+	if n == 0 || (err != nil && err != io.EOF) {
+		return fmt.Errorf("can't read from form file")
 	}
 	/*解决文件重名问题*/
 	/*Solve the issue of duplicate file names.*/
-	filePath := diskRoot + strconv.Itoa(userId) + path + "/" + fileName
-	_, duplicateErr := os.Stat(filePath)
-	index := 0
-	newFilePath := filePath
-	for !os.IsNotExist(duplicateErr) {
-		newFilePath = filePath
-		index++
-		ext := filepath.Ext(newFilePath)
-		base := strings.TrimSuffix(newFilePath, ext)
-
-		newBase := base + "_" + strconv.Itoa(index)
-		newFilePath = newBase + ext
-		_, duplicateErr = os.Stat(newFilePath)
-	}
-	filePath = newFilePath
-	writeErr := os.WriteFile(filePath, cipherData, 0666)
+	path = GetFullFilePath(path+fileName, userId)
+	filePath := DuplicateFileName(path)
+	/*Create new file*/
+	// May return open error "no such file or directory + filePath" due to the absence of destiny folder.
+	encryptFile, err := os.Create(filePath)
+	defer encryptFile.Close()
+	cha20FileIO, err := Utils.DefaultChaCha20FileIO(nil, encryptFile)
 	if err != nil {
+		fmt.Println(err.Error())
+		return err
+	}
+	_, writeErr := cha20FileIO.Write(plainData)
+	if writeErr != nil {
+		fmt.Println(writeErr.Error())
 		return writeErr
+	}
+	closeErr := cha20FileIO.Close()
+	if closeErr != nil {
+		fmt.Println(closeErr.Error())
+		return closeErr
 	}
 	userRoot := diskRoot + strconv.Itoa(userId)
 	_, daErr := uploadDA.Insert(Entities.UploadLog{
@@ -81,6 +78,7 @@ func UploadSmallFile(c *gin.Context, path string, fileSize uint64, fileName stri
 		Size:          fileSize,
 	})
 	if daErr != nil {
+		os.Remove(filePath)
 		fmt.Println(daErr.Error())
 	}
 	return nil
@@ -99,26 +97,6 @@ func LargeFileUploadPrepare(path string, fileSize uint64, userId int) error {
 		return fmt.Errorf("destiny folder doesn't exist")
 	}
 	return nil
-}
-
-// DuplicateFileName check whether there is a file of which the path is the same as the that of new file's
-// If there's a namesake, add _1 _2 ... after the file name as suffix and then return.
-func DuplicateFileName(filePath string) string {
-	_, duplicateErr := os.Stat(filePath)
-	index := 0
-	newFilePath := filePath
-	for !os.IsNotExist(duplicateErr) {
-		newFilePath = filePath
-		index++
-		ext := filepath.Ext(newFilePath)
-		base := strings.TrimSuffix(newFilePath, ext)
-
-		newBase := base + "_" + strconv.Itoa(index)
-		newFilePath = newBase + ext
-		_, duplicateErr = os.Stat(newFilePath)
-	}
-	filePath = newFilePath
-	return filePath
 }
 
 // Upload upload large file
@@ -161,6 +139,7 @@ func Upload(c *gin.Context, offset uint64, uploadPath string, fileSize uint64, u
 			}
 		}(file)
 	}
+	// May return open error "no such file or directory + filePath" due to the absence of destiny folder.
 	if err != nil {
 		return err
 	}
@@ -169,19 +148,12 @@ func Upload(c *gin.Context, offset uint64, uploadPath string, fileSize uint64, u
 		fmt.Println(err.Error())
 		return err
 	}
-	fileHeader, err := c.FormFile("file")
+	formFile, _, err := getFileFromFormData(c)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"msg": err.Error(),
 		})
 		return err
-	}
-	formFile, openErr := fileHeader.Open()
-	if openErr != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"msg": openErr.Error(),
-		})
-		return openErr
 	}
 	plaintext := make([]byte, bufferSize)
 	/*从请求头读取*/
@@ -191,7 +163,7 @@ func Upload(c *gin.Context, offset uint64, uploadPath string, fileSize uint64, u
 	for {
 		// http 长连接，可以不断从body中读。
 		//n, readErr := c.Request.Body.Read(plaintext)
-		n, readErr := formFile.Read(plaintext)
+		n, readErr := (*formFile).Read(plaintext)
 		if readErr != nil && readErr != io.EOF && !errors.Is(readErr, http.ErrBodyReadAfterClose) { //读取出错 read error
 			break
 		}
@@ -231,4 +203,42 @@ func Upload(c *gin.Context, offset uint64, uploadPath string, fileSize uint64, u
 		return err
 	}
 	return nil
+}
+
+// DuplicateFileName check whether there is a file of which the path is the same as the that of new file's
+// If there's a namesake, add _1 _2 ... after the file name as suffix and then return.
+func DuplicateFileName(filePath string) string {
+	_, duplicateErr := os.Stat(filePath)
+	index := 0
+	newFilePath := filePath
+	for !os.IsNotExist(duplicateErr) {
+		newFilePath = filePath
+		index++
+		ext := filepath.Ext(newFilePath)
+		base := strings.TrimSuffix(newFilePath, ext)
+
+		newBase := base + "_" + strconv.Itoa(index)
+		newFilePath = newBase + ext
+		_, duplicateErr = os.Stat(newFilePath)
+	}
+	filePath = newFilePath
+	return filePath
+}
+
+func getFileFromFormData(c *gin.Context) (*multipart.File, int64, error) {
+	fileHeader, err := c.FormFile("file")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"msg": err.Error(),
+		})
+		return nil, 0, err
+	}
+	formFile, openErr := fileHeader.Open()
+	if openErr != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"msg": openErr.Error(),
+		})
+		return nil, 0, openErr
+	}
+	return &formFile, fileHeader.Size, nil
 }
