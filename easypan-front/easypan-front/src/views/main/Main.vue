@@ -3,19 +3,55 @@
     <div class="top">
       <div class="top-op">
         <div class="btn">
-          <el-upload
-              :show-file-list="false"
-              :with-credentials="true"
-              :multiple="true"
-              :http-request="addFile"
-              :accept="fileAccept"
-          >
-            <el-button type="primary">
-              <span class="iconfont icon-upload"></span>
-              上传
-            </el-button>
+          <el-dialog :title="upload.title" v-model="upload.open" width="400px" append-to-body>
+            <el-upload
+                ref="uploadRef"
+                :limit="1"
+                :headers="upload.headers"
+                :action="upload.url"
+                :disabled="upload.isUploading"
+                :on-progress="handleFileUploadProgress"
+                :on-success="handleFileSuccess"
+                :auto-upload="false"
+                drag>
+              <el-icon class="el-icon--upload">
+                <upload-filled/>
+              </el-icon>
+              <div class="el-upload__text">将文件拖到此处，或<em>点击上传</em></div>
+              <!--              <template #tip>-->
+              <!--                <div class="el-upload__tip text-center">-->
+              <!--                  &lt;!&ndash;                  <div class="el-upload__tip">&ndash;&gt;-->
+              <!--                  &lt;!&ndash;                    <el-checkbox v-model="upload.updateSupport"/>&ndash;&gt;-->
+              <!--                  &lt;!&ndash;                    是否更新已经存在的用户数据&ndash;&gt;-->
+              <!--                  &lt;!&ndash;                  </div>&ndash;&gt;-->
+              <!--                  &lt;!&ndash;                  <span>仅允许导入xls、xlsx格式文件。</span>&ndash;&gt;-->
+              <!--                  <el-link type="primary" :underline="false" style="font-size: 12px" @click="importTemplate">下载模板-->
+              <!--                  </el-link>-->
+              <!--                </div>-->
+              <!--              </template>-->
+            </el-upload>
+            <template #footer>
+              <div class="dialog-footer">
+                <el-button type="primary" @click="submitFileForm">确 定</el-button>
+                <el-button @click="upload.open = false">取 消</el-button>
+              </div>
+            </template>
+          </el-dialog>
 
-          </el-upload>
+          <!--          <el-upload-->
+          <!--              :show-file-list="false"-->
+          <!--              :with-credentials="true"-->
+          <!--              :multiple="true"-->
+          <!--              :http-request="addFile"-->
+          <!--              :beforeUpload="beforeUpload"-->
+          <!--              :accept="fileAccept"-->
+          <!--          >-->
+          <el-button type="primary" @click="upload.open = true">
+            <span class="iconfont icon-upload"></span>
+            上传
+          </el-button>
+
+          <!--          </el-upload>-->
         </div>
         <el-button
             type="primary"
@@ -167,7 +203,7 @@
               <div>上传文件</div>
             </div>
           </el-upload>
-          <div class="op-item" v-if="category == 'all'" @click="newFolder">
+          <div class="op-item" v-if="category === 'all'" @click="newFolder">
             <Icon iconName="folder" :width="60"></Icon>
             <div>新建目录</div>
           </div>
@@ -189,9 +225,9 @@
 <script setup>
 import CategoryInfo from "@/js/CategoryInfo.js";
 import FileShare from "./ShareFile.vue";
-import {ref, reactive, getCurrentInstance, nextTick, computed} from "vue";
+import {ref, reactive, getCurrentInstance, nextTick, computed, onMounted} from "vue";
 import {useRouter, useRoute} from "vue-router";
-
+import {UploadFilled} from '@element-plus/icons-vue'
 
 const {proxy} = getCurrentInstance();
 const router = useRouter();
@@ -199,11 +235,53 @@ const route = useRoute();
 const emit = defineEmits(["addFile"]);
 //import download from "../../Func/download";
 import exportData from "../../Func/download";
+import Icon from "../../components/Icon.vue";
+import axios from "axios";
+//import {dialogEmits as upload} from "../../../.vite/deps/element-plus";
 
 const downloadFile = async () => {
   console.log("执行")
   await exportData()
 }
+/*** 用户导入参数 */
+const upload = reactive({
+  // 是否显示弹出层（用户导入）
+  open: false,
+  // 弹出层标题（批量邀约）
+  title: "",
+  // 是否禁用上传
+  isUploading: false,
+  // 是否更新已经存在的用户数据
+  //updateSupport: 0,
+  // 设置上传的请求头部
+  headers: {"token": localStorage.getItem("token")},
+  // 上传的地址
+  url: "https://localhost/user/file/large"
+});
+
+/** 下载模板操作 */
+function importTemplate() {
+  proxy.download("system/user/importTemplate", {}, `user_template_${new Date().getTime()}.xlsx`);
+}
+
+/**文件上传中处理 */
+const handleFileUploadProgress = (event, file, fileList) => {
+  upload.isUploading = true;
+};
+/** 文件上传成功处理 */
+const handleFileSuccess = (response, file, fileList) => {
+  upload.open = false;
+  upload.isUploading = false;
+  proxy.$refs["uploadRef"].handleRemove(file);
+  proxy.$alert("<div style='overflow: auto;overflow-x: hidden;max-height: 70vh;padding: 10px 20px 0;'>" + response.msg + "</div>", "导入结果", {dangerouslyUseHTMLString: true});
+  getList();
+};
+
+/** 提交上传文件 */
+function submitFileForm() {
+  proxy.$refs["uploadRef"].submit();
+}
+
 
 const addFile = async (fileData) => {
   emit("addFile", {file: fileData.file, filePid: currentFolder.value.fileId});
@@ -219,6 +297,7 @@ defineExpose({
   reload,
 });
 
+//当前文件夹
 const currentFolder = ref({fileId: 0});
 
 const api = {
@@ -261,7 +340,7 @@ const search = () => {
   showLoading.value = true;
   loadDataList();
 };
-//列表
+//列表 //文件列表来源
 const tableData = ref({});
 const tableOptions = {
   extHeight: 50,
@@ -272,7 +351,27 @@ const fileNameFuzzy = ref();
 const showLoading = ref(true);
 const category = ref();
 
+const getFile = () => {
+  console.log("执行");
+  axios.get('https://localhost/user/dir/all/earliest/1', {
+    headers: {
+      'Content-Type': 'application/json',
+      'token': localStorage.getItem("token"),
+    }
+  })
+      .then(response => {
+        // 处理响应
+        console.log(response)
 
+
+      })
+      .catch(error => {
+        // 处理错误
+        console.error(error);
+      });
+
+}
+onMounted(getFile);
 //展示文件菜单
 const loadDataList = async () => {
   let params = {
