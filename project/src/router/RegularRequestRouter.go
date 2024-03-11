@@ -8,15 +8,14 @@ import (
 	"strconv"
 )
 
-var NormalRouter = gin.Default()
-
-func GetNormalRouter() *gin.Engine {
+func RegularRequestRouter() *gin.Engine {
+	regularRequestRouter := DefaultCorsRouter()
 	serverPort := Utils.DefaultConfigReader().Get("Server:port").(int)
-	NormalRouter.Use(middleware.TlsHandler(serverPort))
-	NormalRouter.GET("/hello", controllers.Test)
-	NormalRouter.POST("/login", controllers.Login)
+	regularRequestRouter.Use(middleware.TlsHandler(serverPort))
+	regularRequestRouter.GET("/hello", controllers.Test)
+	regularRequestRouter.POST("/login", controllers.Login)
 	//用户路由组
-	userApi := NormalRouter.Group("/user")
+	userApi := regularRequestRouter.Group("/user")
 	{
 		userApi.Use(middleware.TokenInspect())
 		userApi.GET("/info", controllers.GetUserInfo)
@@ -36,8 +35,8 @@ func GetNormalRouter() *gin.Engine {
 		}
 		userApi.GET("/thumbnail", controllers.GetThumbnail) //要改
 	}
-	/*adminRouter := NormalRouter.Group("/admin")*/
-	return NormalRouter
+	/*adminRouter := regularRequestRouter.Group("/admin")*/
+	return regularRequestRouter
 }
 
 func RunTLSOnConfig(router *gin.Engine) {

@@ -9,14 +9,14 @@ import (
 )
 
 func GetControlStreamRouter() *gin.Engine {
-	var CSRouter = gin.Default()
+	var CSRouter = DefaultCorsRouter()
 	CSRouter.Use(middleware.TokenInspect())
 	CSRouter.POST("/download", controllers.CsForDownload)
 	CSRouter.POST("/upload", controllers.CsForUpload)
 	return CSRouter
 }
 func GetDataStreamRouter() *gin.Engine {
-	var DSRouter = gin.Default()
+	var DSRouter = DefaultCorsRouter()
 	DSRouter.Use(middleware.TokenInspect())
 	DSRouter.GET("/download", controllers.DsForDownload)
 	DSRouter.POST("/upload", controllers.DsForUpload)
