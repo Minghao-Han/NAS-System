@@ -8,7 +8,6 @@ import (
 	uploadDA "nas/project/src/DA/uploadLogDA"
 	"nas/project/src/DA/userDA"
 	"nas/project/src/Utils"
-	"nas/project/src/Utils/ImageUtil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -17,6 +16,8 @@ import (
 
 var diskRoot = Utils.DefaultConfigReader().Get("FileSystem:DiskRoot").(string)
 var Slash = Utils.DefaultConfigReader().Get("FileSystem:SlashStyle").(string)
+var thumbNailWidth = Utils.DefaultConfigReader().Get("Download:thumbnail:size:width").(int)
+var thumbNailHeight = Utils.DefaultConfigReader().Get("Download:thumbnail:size:height").(int)
 
 func DeleteFile(userId int, filePath string) error {
 	fileFullPath := GetFullFilePath(filePath, userId)
@@ -68,16 +69,28 @@ func MoveFile(userId int, sourceFilePath string, destinyPath string, cover bool)
 }
 
 func GetThumbnail(userId int, filePath string) (*bytes.Buffer, error) {
+	if thumbNailWidth < 0 || thumbNailHeight < 0 {
+		return nil, fmt.Errorf("check your config, weight and height can't be negative")
+	}
 	filePath = GetFullFilePath(filePath, userId)
-	imgFile, err := os.Open(filePath)
+	encryptedImgFile, err := os.Open(filePath)
 	if err != nil {
 		return nil, err
 	}
-	img, err := ImageUtil.ImgDecode(imgFile, filepath.Ext(filePath))
+	decryptImgBuf := new(bytes.Buffer)
+	cha20FileIO, err := Utils.DefaultChaCha20FileIO(encryptedImgFile, decryptImgBuf)
 	if err != nil {
 		return nil, err
 	}
-	thumbnail := resize.Resize(180, 0, img, resize.Lanczos3)
+	err = cha20FileIO.DecryptCopy()
+	if err != nil {
+		return nil, err
+	}
+	img, err := Utils.ImgDecode(decryptImgBuf, filepath.Ext(filePath))
+	if err != nil {
+		return nil, err
+	}
+	thumbnail := resize.Resize(uint(thumbNailWidth), uint(thumbNailHeight), img, resize.Lanczos3)
 	buf := new(bytes.Buffer)
 	err = jpeg.Encode(buf, thumbnail, nil)
 	if err != nil {

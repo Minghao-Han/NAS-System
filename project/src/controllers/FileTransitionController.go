@@ -18,8 +18,8 @@ var (
 	STOP        int64 = -1
 	CANCEL      int64 = -2
 	NO_OP       int64 = -3
-	bufferSize        = int64(Utils.DefaultConfigReader().Get("download:bufferSize").(int))
-	sectionNum        = Utils.DefaultConfigReader().Get("download:sectionNum").(int)
+	bufferSize        = int64(Utils.DefaultConfigReader().Get("Download:bufferSize").(int))
+	sectionNum        = Utils.DefaultConfigReader().Get("Download:sectionNum").(int)
 	sectionSize       = bufferSize / int64(sectionNum)
 )
 var portsManager = PortManage.DefaultPortsManager()
@@ -73,9 +73,26 @@ func UploadSmallFile(c *gin.Context) {
 
 // LargeFileTransitionPrepare 负责先做些基本的检查，包括margin，文件路径等。如果可以上传，则返回csPort,dsPort
 func LargeFileTransitionPrepare(c *gin.Context) {
+	path := c.GetHeader("path")
+	fileSize, err := strconv.ParseUint(c.GetHeader("size"), 10, 64)
+	filename := c.GetHeader("filename")
+	value, _ := c.Get("userId")
+	userId := value.(int)
+	if path == "" || filename == "" || err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"msg": "missing required info",
+		})
+		return
+	}
+	prepareErr := Service.LargeFileUploadPrepare(path, fileSize, userId)
+	if prepareErr != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"msg": prepareErr.Error(),
+		})
+	}
 	//初步判断可以上传，返回csPort,dsPort
 	csPort, dsPort, connIndex, got := PortManage.DefaultPortsManager().PrepareConnection(net.ParseIP(c.ClientIP()))
-	if !got { //没能预留连接
+	if !got { //没能预留连接。 If haven't reserved connection
 		c.JSON(http.StatusUnprocessableEntity, gin.H{
 			"msg": "failed to get connection reservation",
 		})
@@ -138,6 +155,7 @@ func DsForUpload(c *gin.Context) {
 	defer port.DisConnectByIP(net.ParseIP(c.ClientIP()))
 	connection.GetDS2CS() <- -1
 	/*获取参数*/
+	/*get parameters*/
 	offset, err := strconv.ParseUint(c.GetHeader("offset"), 10, 64)
 	filename := c.GetHeader("filename")
 	clientFilePath := c.GetHeader("clientFilePath")
@@ -203,6 +221,13 @@ func DsForDownload(c *gin.Context) {
 	value, _ := c.Get("userId")
 	userId := value.(int)
 	filePath := c.GetHeader("filePath")
+	connection.GetDS2CS() <- -1
+	///*设置响应头*/
+	c.Header("Content-Disposition", "attachment; filename="+filePath)
+	c.Header("Content-Type", "application/octet-stream")
+	c.Header("Connection", "close")
+	///*写入输出流*/
+	//chaDecipher := Utils.DefaultChaEncryptor()
 	/*获取文件reader*/
 	file, err := os.Open(Service.GetFullFilePath(filePath, userId))
 	if err != nil {
@@ -211,15 +236,20 @@ func DsForDownload(c *gin.Context) {
 		})
 		return
 	}
-	connection.GetDS2CS() <- -1
-	defer file.Close()
-	///*设置响应头*/
-	c.Header("Content-Disposition", "attachment; filename="+filePath)
-	c.Header("Content-Type", "application/octet-stream")
-	c.Header("Connection", "close")
-	///*写入输出流*/
-	//chaDecipher := Utils.DefaultChaEncryptor()
-	var offset int64 = 0
+	defer func(file *os.File) {
+		err := file.Close()
+		if err != nil {
+		}
+	}(file)
+	cha20FileIO, err := Utils.DefaultChaCha20FileIO(file, nil)
+	if err != nil {
+		c.JSON(http.StatusUnprocessableEntity, gin.H{
+			"msg": err.Error(),
+		})
+		return
+	}
+	//Set the offset to 24, because the nonce put in the head of the encrypt file is 24-Bytes long.
+	var offset int64 = 24
 	plaintext := make([]byte, bufferSize)
 	c.Stream(func(w io.Writer) bool {
 		for {
@@ -233,7 +263,7 @@ func DsForDownload(c *gin.Context) {
 			if opcode == STOP {
 				break
 			} else if opcode >= 0 { //opcode为正数时表示偏移多少
-				offset = opcode
+				offset = opcode + 24
 			} else if opcode == NO_OP {
 			} else { //错误的opcode
 				c.JSON(http.StatusBadRequest, gin.H{
@@ -246,7 +276,7 @@ func DsForDownload(c *gin.Context) {
 				break
 			}
 			/*解密*/
-			n, err := file.ReadAt(plaintext, offset)
+			n, err := cha20FileIO.ReadAt(plaintext, file, offset)
 			if err != nil && err.Error() != "EOF" { //文件读取出错
 				c.JSON(http.StatusBadRequest, gin.H{
 					"msg": err.Error(),
@@ -256,7 +286,10 @@ func DsForDownload(c *gin.Context) {
 			if n == 0 {
 				break //跳出for循环
 			}
-			w.Write(plaintext[:n])
+			_, err = w.Write(plaintext[:n])
+			if err != nil {
+				return false
+			}
 			offset += int64(n)
 		}
 		return false

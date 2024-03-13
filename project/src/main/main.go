@@ -9,7 +9,7 @@ import (
 
 func main() {
 	gin.SetMode(gin.ReleaseMode)
-	normalRouter := router.GetNormalRouter()
+	regularRequestRouter := router.RegularRequestRouter()
 	csPorts := Utils.DefaultConfigReader().Get("FSP:csPorts").([]interface{})
 	dsPorts := Utils.DefaultConfigReader().Get("FSP:dsPorts").([]interface{})
 	wg := sync.WaitGroup{}
@@ -31,7 +31,7 @@ func main() {
 		}()
 	}
 	go func() {
-		router.RunTLSOnConfig(normalRouter)
+		router.RunTLSOnConfig(regularRequestRouter)
 		wg.Done()
 	}()
 	wg.Wait()

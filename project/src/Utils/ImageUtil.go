@@ -1,4 +1,4 @@
-package ImageUtil
+package Utils
 
 import (
 	"fmt"

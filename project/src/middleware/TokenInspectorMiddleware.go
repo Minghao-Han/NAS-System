@@ -8,7 +8,7 @@ import (
 
 func TokenInspect() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		token := c.Request.Header.Get("token")
+		token := c.GetHeader("token")
 		if token == "" {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"msg": "no token",

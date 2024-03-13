@@ -1,7 +1,8 @@
 # NAS System
 
 #### 介绍
-nas系统+前端 非群晖黑群晖
+nas系统 后+前端 
+请看readme.en.md
 
 #### 软件架构
 软件架构说明
